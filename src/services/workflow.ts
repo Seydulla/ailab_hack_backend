@@ -116,6 +116,49 @@ function isProfileComplete(profileData: Partial<IUserProfile>): boolean {
   );
 }
 
+function stripDataFromResponse(text: string): string {
+  let cleaned = text;
+
+  if (cleaned.includes('<START_DATA>') && cleaned.includes('<END_DATA>')) {
+    const startIndex = cleaned.indexOf('<START_DATA>');
+    const endIndex = cleaned.indexOf('<END_DATA>');
+    if (startIndex < endIndex) {
+      cleaned =
+        cleaned.substring(0, startIndex).trim() +
+        cleaned.substring(endIndex + '<END_DATA>'.length).trim();
+    }
+  } else if (cleaned.includes('<END_DATA>')) {
+    cleaned = cleaned.split('<END_DATA>')[0].trim();
+  } else if (cleaned.includes('<START_DATA>')) {
+    cleaned = cleaned.split('<START_DATA>')[0].trim();
+  }
+
+  cleaned = cleaned.replace(/<PROFILE_DATA>[\s\S]*?<\/PROFILE_DATA>/gi, '');
+
+  cleaned = cleaned.replace(/```json\n[\s\S]*?\n```/g, '');
+
+  cleaned = cleaned.replace(/```\n[\s\S]*?\n```/g, '');
+
+  cleaned = cleaned.replace(/```json[\s\S]*?```/g, '');
+
+  cleaned = cleaned.replace(/```[\s\S]*?```/g, '');
+
+  const jsonBlockPattern = /\{[\s\S]{20,}\}/g;
+  cleaned = cleaned.replace(jsonBlockPattern, match => {
+    try {
+      const parsed = JSON.parse(match);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return '';
+      }
+      return match;
+    } catch {
+      return match;
+    }
+  });
+
+  return cleaned.trim();
+}
+
 async function processProfileIntake(
   userId: string,
   sessionId: string,
@@ -189,7 +232,7 @@ async function processProfileIntake(
     });
 
     return {
-      response: responseText,
+      response: stripDataFromResponse(responseText),
       action: 'CONFIRMATION',
       step: 'PROFILE_CONFIRMATION',
       data: { profileData },
@@ -201,7 +244,7 @@ async function processProfileIntake(
   });
 
   return {
-    response: responseText,
+    response: stripDataFromResponse(responseText),
     step: 'PROFILE_INTAKE',
   };
 }
@@ -248,6 +291,7 @@ async function processExerciseRecommendation(
         'STANDING') as IExercise['position'],
       steps: (payload.steps as string[]) || [],
       tips: (payload.tips as string) || '',
+      reps: typeof payload.reps === 'number' ? payload.reps : null,
       embedding: null,
       createdAt: payload.createdAt
         ? new Date(payload.createdAt as string)
@@ -377,8 +421,10 @@ Create a complete, personalized workout program following all the guidelines in 
       validatedExercises.length > 0 ? validatedExercises : exercises,
   });
 
+  const cleanedResponse = stripDataFromResponse(responseText);
+
   return {
-    response: responseText,
+    response: cleanedResponse || 'Here is your personalized workout program!',
     action: 'CONFIRMATION',
     step: 'EXERCISE_CONFIRMATION',
     data: {

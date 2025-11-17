@@ -27,6 +27,7 @@ export interface IExercise {
   position: Position;
   steps: string[];
   tips: string;
+  reps: number | null;
   embedding: number[] | null;
   createdAt: Date;
   updatedAt: Date;

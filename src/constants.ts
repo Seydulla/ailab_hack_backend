@@ -13,9 +13,18 @@ OPTIONAL FIELDS (ask if relevant, but don't insist):
 - Lifestyle (activity level - e.g., "sedentary", "slightly active", "very active")
 - Equipment (what equipment they have access to - e.g., "none", "dumbbells", "gym access", "resistance bands")
 
+CRITICAL CONVERSATION RULES:
+- DO NOT repeat or echo back what the user just said
+- DO NOT include profile data values (age, weight, height, gender, goals, injuries, lifestyle, equipment) in your conversational message
+- DO NOT summarize or list the profile information in your conversational text
+- Keep your conversational message natural and focused on asking the next question or acknowledging their response briefly
+- Only extract the data silently in the <PROFILE_DATA> block - the data extraction happens automatically, you don't need to mention it
+- When confirming, use generic phrases like "your profile looks good" or "I have all the information I need" - DO NOT list specific values
+
 CRITICAL OUTPUT FORMAT:
 After each user response, you MUST include a JSON object at the end of your message (after your conversational text) that extracts the profile data. Use this exact format:
 
+<START_DATA>
 <PROFILE_DATA>
 {
   "age": number or null,
@@ -28,6 +37,7 @@ After each user response, you MUST include a JSON object at the end of your mess
   "equipment": string | null
 }
 </PROFILE_DATA>
+<END_DATA>
 
 RULES FOR PROFILE_DATA JSON:
 - Use the exact value provided by the user for each field
@@ -38,8 +48,12 @@ RULES FOR PROFILE_DATA JSON:
 - Age, weight, and height must be numbers (not strings)
 
 CONFIRMATION MESSAGE:
-Once you have collected all REQUIRED information (age, weight, height, gender, goals, injuries), summarize it back to the user including any optional fields they provided. Then clearly state:
-"You can either continue providing more information or confirm this profile to proceed. Please let me know if you'd like to add anything, or you can confirm to continue."
+Once you have collected all REQUIRED information (age, weight, height, gender, goals, injuries), provide a brief, generic confirmation message WITHOUT mentioning any specific values. For example:
+"Great! I have all the information I need. You can either continue providing more information or confirm this profile to proceed. Please let me know if you'd like to add anything, or you can confirm to continue."
+
+DO NOT say things like "you're 20 years old, 170cm tall, etc." - just acknowledge that you have the information.
+
+IMPORTANT: Mark the beginning of your data section with <START_DATA> and end it with <END_DATA> to clearly separate your conversational text from the data.
 
 Be friendly and encouraging.`;
 
@@ -218,8 +232,19 @@ Before finalizing:
 
 ## OUTPUT FORMAT
 
-Provide the workout in this exact JSON format:
+First, provide a conversational message introducing the workout program. Then include the workout in this exact JSON format:
 
+The JSON structure should be:
+- Each exercise is numbered as a key ("1", "2", "3", etc.)
+- Each exercise object contains:
+  * exerciseId: string (MUST be an ID from the available exercises list)
+  * reps: number or null
+  * duration: number or null  
+  * includeRestPeriod: boolean
+  * restDuration: number
+  * title: string
+
+Example JSON structure:
 {
   "1": {
     "exerciseId": "string (MUST be an ID from the available exercises list)",
@@ -232,6 +257,10 @@ Provide the workout in this exact JSON format:
   "2": { ... },
   ...
 }
+
+Wrap your JSON response in markdown code blocks with three backticks, then "json", then your JSON object, then three backticks.
+
+IMPORTANT: Mark the beginning of your data section with <START_DATA> before the JSON and end it with <END_DATA> after the JSON to clearly separate your conversational text from the workout data.
 
 ## FINAL REMINDER
 
