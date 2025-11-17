@@ -1,25 +1,12 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import {
-  processWorkflow,
-  handleConfirm,
-  handleCancel,
-} from './services/workflow';
+import { processWorkflow } from './services/workflow';
 import type { Message, WorkflowResponse } from './types';
 
 interface WorkflowRequest {
   userId: string;
   sessionId: string;
   messages: Message[];
-}
-
-interface ConfirmRequest {
-  sessionId: string;
-}
-
-interface CancelRequest {
-  sessionId: string;
-  reason?: string;
 }
 
 const app: Express = express();
@@ -76,51 +63,6 @@ app.post('/api/workflow', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Workflow error:', error);
     return res.status(500).json({ error: 'Failed to process workflow' });
-  }
-});
-
-app.post('/api/workflow/confirm', async (req: Request, res: Response) => {
-  try {
-    const body = req.body as unknown;
-    if (!body || typeof body !== 'object' || !('sessionId' in body)) {
-      return res.status(400).json({ error: 'sessionId is required' });
-    }
-
-    const { sessionId } = body as ConfirmRequest;
-
-    if (typeof sessionId !== 'string') {
-      return res.status(400).json({ error: 'sessionId must be a string' });
-    }
-
-    await handleConfirm(sessionId);
-    return res.json({ success: true, message: 'Confirmed successfully' });
-  } catch (error) {
-    console.error('Confirm error:', error);
-    return res.status(500).json({ error: 'Failed to confirm' });
-  }
-});
-
-app.post('/api/workflow/cancel', async (req: Request, res: Response) => {
-  try {
-    const body = req.body as unknown;
-    if (!body || typeof body !== 'object' || !('sessionId' in body)) {
-      return res.status(400).json({ error: 'sessionId is required' });
-    }
-
-    const { sessionId, reason } = body as CancelRequest;
-
-    if (typeof sessionId !== 'string') {
-      return res.status(400).json({ error: 'sessionId must be a string' });
-    }
-
-    await handleCancel(
-      sessionId,
-      typeof reason === 'string' ? reason : undefined
-    );
-    return res.json({ success: true, message: 'Cancelled successfully' });
-  } catch (error) {
-    console.error('Cancel error:', error);
-    return res.status(500).json({ error: 'Failed to cancel' });
   }
 });
 

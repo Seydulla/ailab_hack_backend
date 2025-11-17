@@ -469,6 +469,262 @@ async function processExerciseSummary(
   };
 }
 
+function isConfirmMessage(content: string): boolean {
+  const normalized = content.trim().toUpperCase();
+  return (
+    normalized === 'CONFIRM' || normalized === 'YES' || normalized === 'OK'
+  );
+}
+
+function isCancelMessage(content: string): boolean {
+  const normalized = content.trim().toUpperCase();
+  return (
+    normalized === 'CANCEL' ||
+    normalized === 'NO' ||
+    normalized.startsWith('CANCEL') ||
+    normalized.includes('CHANGE') ||
+    normalized.includes('MODIFY') ||
+    normalized.includes('CORRECT')
+  );
+}
+
+async function handleProfileConfirmation(
+  sessionId: string,
+  messages: Message[]
+): Promise<WorkflowResponse> {
+  const sessionResult = await getSession(sessionId);
+  if (!sessionResult) {
+    throw new Error('Session not found');
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  const messageContent = lastMessage?.content?.trim().toUpperCase() || '';
+
+  if (isConfirmMessage(messageContent)) {
+    await updateSessionStep(sessionId, 'EXERCISE_RECOMMENDATION');
+    return await processExerciseRecommendation(sessionId);
+  }
+
+  if (isCancelMessage(messageContent)) {
+    const session: SessionState = sessionResult;
+    const conversationHistory: Message[] = session.conversationHistory;
+    const cancelReason = lastMessage?.content || '';
+
+    const updatedHistory: Message[] = [...conversationHistory, ...messages];
+
+    const chat = genAI.chats.create({
+      model: 'gemini-2.0-flash',
+      history: updatedHistory.map((msg: Message) => ({
+        role: msg.role,
+        parts: [{ text: msg.content }],
+      })),
+      config: {
+        systemInstruction: {
+          parts: [{ text: PROFILE_INTAKE_SYSTEM_PROMPT }],
+        },
+      },
+    });
+
+    const cancelPrompt =
+      cancelReason && !isCancelMessage(cancelReason)
+        ? `The user wants to make changes. They said: "${cancelReason}". Please ask what they'd like to change or correct.`
+        : 'The user wants to correct their information. Please ask what they would like to change or add.';
+
+    const response = await chat.sendMessage({ message: cancelPrompt });
+    const responseText = response.text || '';
+
+    const fullHistory: Message[] = [
+      ...updatedHistory,
+      { role: 'model' as const, content: responseText },
+    ];
+
+    await updateSession(sessionId, {
+      step: 'PROFILE_INTAKE',
+      conversationHistory: fullHistory,
+    });
+
+    return {
+      response: responseText,
+      step: 'PROFILE_INTAKE',
+    };
+  }
+
+  const session: SessionState = sessionResult;
+  const conversationHistory: Message[] = session.conversationHistory;
+  const updatedHistory: Message[] = [...conversationHistory, ...messages];
+
+  const chat = genAI.chats.create({
+    model: 'gemini-2.0-flash',
+    history: updatedHistory.map((msg: Message) => ({
+      role: msg.role,
+      parts: [{ text: msg.content }],
+    })),
+    config: {
+      systemInstruction: {
+        parts: [
+          {
+            text: `You are helping the user confirm or modify their profile. They can say "CONFIRM" to proceed, "CANCEL" to make changes, or provide additional information. Be helpful and conversational.`,
+          },
+        ],
+      },
+    },
+  });
+
+  const lastUserMessage = messages[messages.length - 1]?.content || '';
+  const response = await chat.sendMessage({ message: lastUserMessage });
+  const responseText = response.text || '';
+
+  const fullHistory: Message[] = [
+    ...updatedHistory,
+    { role: 'model' as const, content: responseText },
+  ];
+
+  await updateSession(sessionId, {
+    conversationHistory: fullHistory,
+  });
+
+  return {
+    response: responseText,
+    step: 'PROFILE_CONFIRMATION',
+    action: 'CONFIRMATION',
+    data: { profileData: session.profileData },
+  };
+}
+
+async function handleExerciseConfirmation(
+  sessionId: string,
+  messages: Message[]
+): Promise<WorkflowResponse> {
+  const sessionResult = await getSession(sessionId);
+  if (!sessionResult) {
+    throw new Error('Session not found');
+  }
+
+  const session: SessionState = sessionResult;
+  const lastMessage = messages[messages.length - 1];
+  const messageContent = lastMessage?.content?.trim().toUpperCase() || '';
+
+  if (isConfirmMessage(messageContent)) {
+    if (!session.exerciseRecommendations) {
+      throw new Error('Exercise recommendations not found');
+    }
+    const exerciseRecommendations: IExercise[] =
+      session.exerciseRecommendations;
+    await updateSession(sessionId, {
+      step: 'EXERCISE_SUMMARY',
+      selectedExercises: exerciseRecommendations,
+    });
+
+    return {
+      response:
+        'Great! Your workout is confirmed. Please complete the exercises and submit your results when done.',
+      step: 'EXERCISE_SUMMARY',
+    };
+  }
+
+  if (isCancelMessage(messageContent)) {
+    const cancelReason = lastMessage?.content || '';
+    const conversationHistory: Message[] = session.conversationHistory;
+    const updatedHistory: Message[] = [...conversationHistory, ...messages];
+
+    const chat = genAI.chats.create({
+      model: 'gemini-2.0-flash',
+      history: updatedHistory.map((msg: Message) => ({
+        role: msg.role,
+        parts: [{ text: msg.content }],
+      })),
+      config: {
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are helping the user with their exercise recommendations. They can say "CONFIRM" to proceed with the current workout, "CANCEL" to get new recommendations, or ask questions. Be helpful and ask what they'd like to do - get new recommendations, modify something, or ask questions about the exercises.`,
+            },
+          ],
+        },
+      },
+    });
+
+    const cancelPrompt =
+      cancelReason && !isCancelMessage(cancelReason)
+        ? `The user wants to make changes. They said: "${cancelReason}". Please ask what they'd like to do - get new recommendations, modify something, or ask questions.`
+        : 'The user wants to make changes to their workout recommendations. Please ask what they would like to do - would they like new recommendations, or do they have questions about the current exercises?';
+
+    const response = await chat.sendMessage({ message: cancelPrompt });
+    const responseText = response.text || '';
+
+    const fullHistory: Message[] = [
+      ...updatedHistory,
+      { role: 'model' as const, content: responseText },
+    ];
+
+    const normalizedReason = cancelReason.trim().toUpperCase();
+    if (
+      normalizedReason.includes('NEW') ||
+      normalizedReason.includes('DIFFERENT') ||
+      normalizedReason.includes('ANOTHER') ||
+      normalizedReason.includes('RECOMMENDATION')
+    ) {
+      await updateSession(sessionId, {
+        step: 'EXERCISE_RECOMMENDATION',
+        conversationHistory: fullHistory,
+      });
+      return await processExerciseRecommendation(sessionId);
+    }
+
+    await updateSession(sessionId, {
+      step: 'EXERCISE_CONFIRMATION',
+      conversationHistory: fullHistory,
+    });
+
+    return {
+      response: responseText,
+      step: 'EXERCISE_CONFIRMATION',
+      action: 'CONFIRMATION',
+      data: { exercises: session.exerciseRecommendations || [] },
+    };
+  }
+
+  const conversationHistory: Message[] = session.conversationHistory;
+  const updatedHistory: Message[] = [...conversationHistory, ...messages];
+
+  const chat = genAI.chats.create({
+    model: 'gemini-2.0-flash',
+    history: updatedHistory.map((msg: Message) => ({
+      role: msg.role,
+      parts: [{ text: msg.content }],
+    })),
+    config: {
+      systemInstruction: {
+        parts: [
+          {
+            text: `You are helping the user confirm or modify their exercise recommendations. They can say "CONFIRM" to proceed, "CANCEL" to get new recommendations, or ask questions about the exercises. Be helpful and conversational.`,
+          },
+        ],
+      },
+    },
+  });
+
+  const lastUserMessage = messages[messages.length - 1]?.content || '';
+  const response = await chat.sendMessage({ message: lastUserMessage });
+  const responseText = response.text || '';
+
+  const fullHistory: Message[] = [
+    ...updatedHistory,
+    { role: 'model' as const, content: responseText },
+  ];
+
+  await updateSession(sessionId, {
+    conversationHistory: fullHistory,
+  });
+
+  return {
+    response: responseText,
+    step: 'EXERCISE_CONFIRMATION',
+    action: 'CONFIRMATION',
+    data: { exercises: session.exerciseRecommendations || [] },
+  };
+}
+
 export async function processWorkflow(
   userId: string,
   sessionId: string,
@@ -487,17 +743,13 @@ export async function processWorkflow(
       return await processProfileIntake(userId, sessionId, messages);
 
     case 'PROFILE_CONFIRMATION':
-      throw new Error(
-        'Profile confirmation pending. Use confirm/cancel endpoints.'
-      );
+      return await handleProfileConfirmation(sessionId, messages);
 
     case 'EXERCISE_RECOMMENDATION':
       return await processExerciseRecommendation(sessionId);
 
     case 'EXERCISE_CONFIRMATION':
-      throw new Error(
-        'Exercise confirmation pending. Use confirm/cancel endpoints.'
-      );
+      return await handleExerciseConfirmation(sessionId, messages);
 
     case 'EXERCISE_SUMMARY':
       if (messages.length > 0) {
@@ -526,67 +778,5 @@ export async function processWorkflow(
 
     default:
       return await processProfileIntake(userId, sessionId, messages);
-  }
-}
-
-export async function handleConfirm(sessionId: string): Promise<void> {
-  const sessionResult = await getSession(sessionId);
-  if (!sessionResult) {
-    throw new Error('Session not found');
-  }
-
-  const session: SessionState = sessionResult;
-
-  if (session.step === 'PROFILE_CONFIRMATION') {
-    // Profile data is stored in Redis session, no need to save to database
-    await updateSessionStep(sessionId, 'EXERCISE_RECOMMENDATION');
-  } else if (session.step === 'EXERCISE_CONFIRMATION') {
-    if (!session.exerciseRecommendations) {
-      throw new Error('Exercise recommendations not found');
-    }
-    const exerciseRecommendations: IExercise[] =
-      session.exerciseRecommendations;
-    await updateSession(sessionId, {
-      step: 'EXERCISE_SUMMARY',
-      selectedExercises: exerciseRecommendations,
-    });
-  }
-}
-
-export async function handleCancel(
-  sessionId: string,
-  reason?: string
-): Promise<void> {
-  const sessionResult = await getSession(sessionId);
-  if (!sessionResult) {
-    throw new Error('Session not found');
-  }
-
-  const session: SessionState = sessionResult;
-
-  if (session.step === 'PROFILE_CONFIRMATION') {
-    const conversationHistory: Message[] = session.conversationHistory;
-    const chat = genAI.chats.create({
-      model: 'gemini-2.0-flash',
-      history: conversationHistory.map((msg: Message) => ({
-        role: msg.role,
-        parts: [{ text: msg.content }],
-      })),
-      config: {
-        systemInstruction: {
-          parts: [{ text: PROFILE_INTAKE_SYSTEM_PROMPT }],
-        },
-      },
-    });
-
-    const cancelMessage: string = reason
-      ? `The user said: "${reason}". Please ask for corrections.`
-      : 'The user wants to correct their information. Please ask again.';
-
-    await chat.sendMessage({ message: cancelMessage });
-
-    await updateSessionStep(sessionId, 'PROFILE_INTAKE');
-  } else if (session.step === 'EXERCISE_CONFIRMATION') {
-    await updateSessionStep(sessionId, 'EXERCISE_RECOMMENDATION');
   }
 }
