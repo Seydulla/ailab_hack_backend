@@ -1,10 +1,19 @@
-import dotenv from 'dotenv';
 import app from './app';
+import { env } from './config/env';
+import pool from './config/db';
 
-dotenv.config();
+async function startServer() {
+  try {
+    await pool.query('SELECT NOW()');
+    console.log('✅ Database connected successfully');
 
-const PORT = process.env.PORT || 3000;
+    app.listen(env.PORT, () => {
+      console.log(`🚀 Server is running on port ${env.PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error);
+    process.exit(1);
+  }
+}
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+void startServer();

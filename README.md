@@ -17,6 +17,7 @@ A modern Express API built with TypeScript, featuring ESLint, Prettier, and Husk
 
 - Node.js (v18 or higher)
 - Yarn package manager
+- Docker and Docker Compose
 
 ## Installation
 
@@ -35,6 +36,14 @@ cp .env.example .env
 
 4. Update `.env` with your configuration
 
+5. Start the PostgreSQL database:
+
+```bash
+yarn db:up
+```
+
+The database will automatically initialize with the schema from `schema.sql` on first startup.
+
 ## Available Scripts
 
 - `yarn dev` - Start development server with hot reload
@@ -44,10 +53,18 @@ cp .env.example .env
 - `yarn format` - Format code with Prettier
 - `yarn type-check` - Run TypeScript type checking without emitting files
 
+### Database Scripts
+
+- `yarn db:up` - Start PostgreSQL database container
+- `yarn db:down` - Stop PostgreSQL database container
+- `yarn db:restart` - Restart PostgreSQL database container
+- `yarn db:logs` - View PostgreSQL database logs
+
 ## Environment Variables
 
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment mode (development/production)
+- `DATABASE_URL` - PostgreSQL connection string (default: `postgresql://postgres:postgres@localhost:5432/ailab_hack`)
 
 ## Project Structure
 
@@ -80,4 +97,3 @@ Pre-commit hooks automatically run ESLint and Prettier on staged files.
 ## License
 
 ISC
-
