@@ -53,16 +53,6 @@ export async function syncExerciseToQdrant(exerciseId: string): Promise<void> {
       const embeddingText = buildEmbeddingText(exercise);
       const embedding = await embedText(embeddingText);
 
-      const client = await pool.connect();
-      try {
-        await client.query(
-          'UPDATE exercises SET embedding = $1 WHERE id = $2',
-          [JSON.stringify(embedding), exercise.id]
-        );
-      } finally {
-        client.release();
-      }
-
       const bodyPartsText =
         typeof exercise.body_parts === 'string'
           ? exercise.body_parts

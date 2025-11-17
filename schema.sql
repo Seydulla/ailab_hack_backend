@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS exercises (
   position VARCHAR(20) NOT NULL CHECK (position IN ('STANDING', 'SEATED', 'FLOOR')),
   steps TEXT NOT NULL,
   tips TEXT NOT NULL,
-  embedding JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -26,7 +25,6 @@ CREATE TABLE IF NOT EXISTS past_sessions (
   volume DECIMAL(10, 2) NOT NULL,
   quality_score DECIMAL(3, 2) NOT NULL CHECK (quality_score >= 0 AND quality_score <= 1),
   notes TEXT,
-  embedding JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

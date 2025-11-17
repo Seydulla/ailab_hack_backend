@@ -57,7 +57,6 @@ export interface ExerciseRow {
   position: string;
   steps: string;
   tips: string;
-  embedding: number[] | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -70,7 +69,6 @@ export interface PastSessionRow {
   volume: number;
   quality_score: number;
   notes: string | null;
-  embedding: number[] | null;
   created_at: Date;
   updated_at: Date;
 }
