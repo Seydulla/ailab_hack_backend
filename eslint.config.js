@@ -27,6 +27,7 @@ module.exports = tseslint.config(
           argsIgnorePattern: '^_',
         },
       ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     },
   }
 );
