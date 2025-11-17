@@ -9,6 +9,10 @@ export interface IUserProfile {
   weight: number;
   height: number;
   gender: Gender;
+  goals: string;
+  injuries: string;
+  lifestyle?: string;
+  equipment?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,17 +60,6 @@ export interface ExerciseRow {
   updated_at: Date;
 }
 
-export interface UserProfileRow {
-  id: string;
-  user_id: string;
-  age: number;
-  weight: number;
-  height: number;
-  gender: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
 export interface PastSessionRow {
   id: string;
   session_id: string;
@@ -87,4 +80,37 @@ export interface SessionExerciseRow {
 
 export interface SessionFormErrorRow {
   error: string;
+}
+
+export type WorkflowStep =
+  | 'PROFILE_INTAKE'
+  | 'PROFILE_CONFIRMATION'
+  | 'EXERCISE_RECOMMENDATION'
+  | 'EXERCISE_CONFIRMATION'
+  | 'EXERCISE_SUMMARY';
+
+export interface Message {
+  role: 'user' | 'model';
+  content: string;
+}
+
+export interface SessionState {
+  userId: string;
+  step: WorkflowStep;
+  profileData?: IUserProfile;
+  conversationHistory: Message[];
+  exerciseRecommendations?: IExercise[];
+  selectedExercises?: IExercise[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowResponse {
+  response: string;
+  action?: 'CONFIRMATION';
+  step: string;
+  data?: {
+    profileData?: IUserProfile;
+    exercises?: IExercise[];
+  };
 }

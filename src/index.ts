@@ -2,6 +2,7 @@ import app from './app';
 import { env } from './config/env';
 import pool from './config/db';
 import qdrantClient from './config/qdrant';
+import redisClient from './config/redis';
 import { initializeExercisesCollection } from './services/qdrant';
 import {
   startNotificationListener,
@@ -15,6 +16,9 @@ async function startServer() {
 
     await qdrantClient.getCollections();
     console.log('✅ Qdrant connected successfully');
+
+    await redisClient.connect();
+    console.log('✅ Redis connected successfully');
 
     await initializeExercisesCollection();
     await startNotificationListener();
@@ -31,6 +35,7 @@ async function startServer() {
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down gracefully...');
   void stopNotificationListener()
+    .then(() => redisClient.quit())
     .then(() => pool.end())
     .then(() => {
       process.exit(0);
@@ -44,6 +49,7 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   console.log('\n🛑 Shutting down gracefully...');
   void stopNotificationListener()
+    .then(() => redisClient.quit())
     .then(() => pool.end())
     .then(() => {
       process.exit(0);

@@ -1,16 +1,3 @@
-CREATE TABLE IF NOT EXISTS user_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id VARCHAR(255) UNIQUE NOT NULL,
-  age INTEGER NOT NULL,
-  weight DECIMAL(5, 2) NOT NULL,
-  height DECIMAL(5, 2) NOT NULL,
-  gender VARCHAR(20) NOT NULL CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
-
 CREATE TABLE IF NOT EXISTS exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title VARCHAR(255) NOT NULL,
@@ -32,7 +19,7 @@ CREATE INDEX idx_exercises_position ON exercises(position);
 CREATE TABLE IF NOT EXISTS past_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id VARCHAR(255) UNIQUE NOT NULL,
-  user_id VARCHAR(255) NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
+  user_id VARCHAR(255) NOT NULL,
   date TIMESTAMP NOT NULL,
   volume DECIMAL(10, 2) NOT NULL,
   quality_score DECIMAL(3, 2) NOT NULL CHECK (quality_score >= 0 AND quality_score <= 1),
