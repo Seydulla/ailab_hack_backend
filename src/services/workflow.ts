@@ -2,7 +2,7 @@ import genAI from '../config/gemini';
 import pool from '../config/db';
 import qdrantClient from '../config/qdrant';
 import { EXERCISES_COLLECTION_NAME } from './qdrant';
-import { embedText } from '../utils';
+import { embedText, toonEncode, toonDecode } from '../utils';
 import {
   getSession,
   setSession,
@@ -66,8 +66,15 @@ function extractProfileData(text: string): Partial<IUserProfile> | null {
   }
 
   try {
-    const jsonStr = profileDataMatch[1].trim();
-    const parsed: ProfileDataJSON = JSON.parse(jsonStr);
+    const toonStr = profileDataMatch[1].trim();
+    let parsed: ProfileDataJSON;
+
+    try {
+      parsed = toonDecode(toonStr) as ProfileDataJSON;
+    } catch {
+      const jsonStr = toonStr;
+      parsed = JSON.parse(jsonStr);
+    }
 
     if (parsed.age !== null && typeof parsed.age === 'number') {
       profileData.age = parsed.age;
@@ -157,6 +164,8 @@ function stripDataFromResponse(text: string): string {
   cleaned = cleaned.replace(/<START_DATA>[\s\S]*/gi, '');
   cleaned = cleaned.replace(/<END_DATA>[\s\S]*/gi, '');
   cleaned = cleaned.replace(/<PROFILE_DATA>[\s\S]*?<\/PROFILE_DATA>/gi, '');
+  cleaned = cleaned.replace(/<WORKOUT_DATA>[\s\S]*?<\/WORKOUT_DATA>/gi, '');
+  cleaned = cleaned.replace(/<EXERCISES_DATA>[\s\S]*?<\/EXERCISES_DATA>/gi, '');
 
   cleaned = cleaned.replace(/```json\n[\s\S]*?\n```/g, '');
 
@@ -284,13 +293,13 @@ async function processExerciseRecommendation(
   }
 
   const profile: IUserProfile = session.profileData;
-  const profileText = `Age: ${profile.age}, Weight: ${profile.weight}kg, Height: ${profile.height}cm, Gender: ${profile.gender}, Goals: ${profile.goals}, Injuries: ${profile.injuries}${profile.lifestyle ? `, Lifestyle: ${profile.lifestyle}` : ''}${profile.equipment ? `, Equipment: ${profile.equipment}` : ''}`;
+  const profileText = `Age: ${profile.age}, Weight: ${profile.weight}kg, Height: ${profile.height}cm, Gender: ${profile.gender}, Goals: ${profile.goals}, ${profile.lifestyle ? `, Lifestyle: ${profile.lifestyle}` : ''}${profile.equipment ? `, Equipment: ${profile.equipment}` : ''}`;
 
   const embedding = await embedText(profileText);
 
   const searchResults = await qdrantClient.search(EXERCISES_COLLECTION_NAME, {
     vector: embedding,
-    limit: 10,
+    limit: 50,
   });
 
   const points = Array.isArray(searchResults) ? searchResults : [];
@@ -360,39 +369,42 @@ async function processExerciseRecommendation(
     },
   });
 
-  const exerciseList = exercises
-    .map(
-      (e, i) =>
-        `${i + 1}. ID: ${e.id}, Title: ${e.title} - ${e.description} (Difficulty: ${e.difLevel}, Position: ${e.position}, Body Parts: ${e.bodyParts.join(', ')})`
-    )
-    .join('\n');
-
   const exerciseIdMap = new Map<string, IExercise>();
   exercises.forEach(e => {
     exerciseIdMap.set(e.id, e);
   });
 
-  const prompt = `## USER PROFILE
+  const exerciseListData = exercises.map(e => ({
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    difficulty: e.difLevel,
+    position: e.position,
+    bodyParts: e.bodyParts,
+  }));
 
-Age: ${profile.age}
+  const profileData = {
+    age: profile.age,
+    height: profile.height,
+    weight: profile.weight,
+    gender: profile.gender,
+    lifestyle: profile.lifestyle || 'Not specified',
+    goal: profile.goals,
+    equipment: profile.equipment || 'Not specified',
+    injuries: profile.injuries,
+  };
 
-Height: ${profile.height}cm
+  const profileToon = toonEncode(profileData);
+  const exercisesToon = toonEncode(exerciseListData);
 
-Weight: ${profile.weight}kg
-
-Gender: ${profile.gender}
-
-Lifestyle: ${profile.lifestyle || 'Not specified'}
-
-Goal: ${profile.goals}
-
-Preferences: ${profile.equipment || 'Not specified'}
-
-Injuries/Limitations: ${profile.injuries}
-
-## AVAILABLE EXERCISES
-
-${exerciseList}
+  const prompt = `<START_DATA>
+<PROFILE_DATA>
+${profileToon}
+</PROFILE_DATA>
+<EXERCISES_DATA>
+${exercisesToon}
+</EXERCISES_DATA>
+<END_DATA>
 
 Create a complete, personalized workout program following all the guidelines in your system instructions.`;
 
@@ -402,14 +414,35 @@ Create a complete, personalized workout program following all the guidelines in 
   const validatedExercises: IExercise[] = [];
 
   try {
-    const jsonMatch =
+    const workoutDataMatch = responseText.match(
+      /<WORKOUT_DATA>([\s\S]*?)<\/WORKOUT_DATA>/
+    );
+    const dataMatch =
+      responseText.match(/<START_DATA>([\s\S]*?)<END_DATA>/) ||
       responseText.match(/```json\n([\s\S]*?)\n```/) ||
       responseText.match(/```\n([\s\S]*?)\n```/) ||
       responseText.match(/\{[\s\S]*\}/);
 
-    if (jsonMatch) {
-      const jsonStr = jsonMatch[1] || jsonMatch[0];
-      const parsed = JSON.parse(jsonStr);
+    if (workoutDataMatch || dataMatch) {
+      const dataStr = workoutDataMatch
+        ? workoutDataMatch[1].trim()
+        : dataMatch?.[1].trim() || '';
+      let parsed: Record<string, unknown>;
+
+      try {
+        parsed = toonDecode(dataStr) as Record<string, unknown>;
+      } catch {
+        try {
+          parsed = JSON.parse(dataStr);
+        } catch {
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('Could not parse response');
+          }
+        }
+      }
 
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         const validWorkout: Record<string, unknown> = {};
@@ -498,13 +531,19 @@ Create a complete, personalized workout program following all the guidelines in 
         }
 
         if (validCount > 0) {
-          const validJsonStr = JSON.stringify(validWorkout, null, 2);
-          responseText = responseText.replace(
-            jsonMatch[0],
-            `\`\`\`json\n${validJsonStr}\n\`\`\``
-          );
+          const validToonStr = toonEncode(validWorkout);
+          const originalMatch = workoutDataMatch
+            ? workoutDataMatch[0]
+            : dataMatch?.[0] || '';
+          const replacement = `<START_DATA>\n<WORKOUT_DATA>\n${validToonStr}\n</WORKOUT_DATA>\n<END_DATA>`;
+          if (originalMatch) {
+            responseText = responseText.replace(originalMatch, replacement);
+          }
         } else {
-          responseText = `I apologize, but I couldn't create a workout with the available exercises. The available exercises are:\n\n${exerciseList}\n\nPlease ensure there are exercises available that match your profile.`;
+          const exerciseListText = exercises
+            .map((e, i) => `${i + 1}. ID: ${e.id}, Title: ${e.title}`)
+            .join('\n');
+          responseText = `I apologize, but I couldn't create a workout with the available exercises. The available exercises are:\n\n${exerciseListText}\n\nPlease ensure there are exercises available that match your profile.`;
         }
       }
     }
@@ -566,12 +605,13 @@ async function processExerciseSummary(
     },
   });
 
-  const exerciseList: string = selectedExercises
-    .map((e: IExercise) => `- ${e.title}`)
-    .join('\n');
-  const resultsText = JSON.stringify(exerciseResults, null, 2);
+  const exerciseListData = selectedExercises.map((e: IExercise) => ({
+    title: e.title,
+  }));
+  const exerciseListToon = toonEncode(exerciseListData);
+  const resultsToon = toonEncode(exerciseResults);
 
-  const prompt = `User completed these exercises:\n${exerciseList}\n\nExercise results:\n${resultsText}\n\nCreate an encouraging summary.`;
+  const prompt = `User completed these exercises (TOON format):\n${exerciseListToon}\n\nExercise results (TOON format):\n${resultsToon}\n\nCreate an encouraging summary.`;
 
   const response = await chat.sendMessage({ message: prompt });
   const summary = response.text || '';
