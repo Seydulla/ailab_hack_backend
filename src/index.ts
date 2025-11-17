@@ -2,6 +2,11 @@ import app from './app';
 import { env } from './config/env';
 import pool from './config/db';
 import qdrantClient from './config/qdrant';
+import { initializeExercisesCollection } from './services/qdrant';
+import {
+  startNotificationListener,
+  stopNotificationListener,
+} from './services/triggerListener';
 
 async function startServer() {
   try {
@@ -11,6 +16,9 @@ async function startServer() {
     await qdrantClient.getCollections();
     console.log('✅ Qdrant connected successfully');
 
+    await initializeExercisesCollection();
+    await startNotificationListener();
+
     app.listen(env.PORT, () => {
       console.log(`🚀 Server is running on port ${env.PORT}`);
     });
@@ -19,5 +27,31 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  void stopNotificationListener()
+    .then(() => pool.end())
+    .then(() => {
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('❌ Error during shutdown:', err);
+      process.exit(1);
+    });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  void stopNotificationListener()
+    .then(() => pool.end())
+    .then(() => {
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('❌ Error during shutdown:', err);
+      process.exit(1);
+    });
+});
 
 void startServer();

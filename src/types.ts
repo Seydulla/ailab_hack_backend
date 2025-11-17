@@ -45,22 +45,15 @@ export interface ExerciseRow {
   id: string;
   title: string;
   description: string;
+  body_parts: string;
   dif_level: string;
   common_mistakes: string;
   position: string;
+  steps: string;
   tips: string;
   embedding: number[] | null;
   created_at: Date;
   updated_at: Date;
-}
-
-export interface ExerciseBodyPartRow {
-  name: string;
-}
-
-export interface ExerciseStepRow {
-  content: string;
-  order_index: number;
 }
 
 export interface UserProfileRow {
