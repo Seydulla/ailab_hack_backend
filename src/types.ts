@@ -47,6 +47,7 @@ export interface IPastSession {
 
 export interface ExerciseRow {
   id: string;
+  external_id: string;
   title: string;
   description: string;
   body_parts: string;

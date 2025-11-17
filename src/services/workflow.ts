@@ -237,7 +237,7 @@ async function processExerciseRecommendation(
         ? (point.payload as Record<string, unknown>)
         : {};
     return {
-      id: String(point.id),
+      id: (payload.external_id as string) || String(point.id),
       title: (payload.title as string) || '',
       bodyParts: (payload.bodyParts as string[]) || [],
       description: (payload.description as string) || '',

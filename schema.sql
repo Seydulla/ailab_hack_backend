@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_id VARCHAR(255) NOT NULL UNIQUE,
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
   body_parts TEXT NOT NULL,
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS exercises (
 
 CREATE INDEX idx_exercises_dif_level ON exercises(dif_level);
 CREATE INDEX idx_exercises_position ON exercises(position);
+CREATE INDEX idx_exercises_external_id ON exercises(external_id);
 
 CREATE TABLE IF NOT EXISTS past_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +38,7 @@ CREATE INDEX idx_past_sessions_session_id ON past_sessions(session_id);
 CREATE TABLE IF NOT EXISTS session_exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES past_sessions(id) ON DELETE CASCADE,
-  exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  exercise_id VARCHAR(255) NOT NULL REFERENCES exercises(external_id) ON DELETE CASCADE,
   order_index INTEGER NOT NULL,
   UNIQUE(session_id, order_index)
 );

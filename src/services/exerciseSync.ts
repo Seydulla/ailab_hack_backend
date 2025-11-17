@@ -4,12 +4,12 @@ import { embedText } from '../utils';
 import { EXERCISES_COLLECTION_NAME } from './qdrant';
 import type { ExerciseRow } from '../types';
 
-async function fetchExercise(exerciseId: string): Promise<ExerciseRow | null> {
+async function fetchExercise(id: string): Promise<ExerciseRow | null> {
   const client = await pool.connect();
   try {
     const exerciseResult = await client.query<ExerciseRow>(
       'SELECT * FROM exercises WHERE id = $1',
-      [exerciseId]
+      [id]
     );
 
     if (exerciseResult.rows.length === 0) {
@@ -57,7 +57,7 @@ export async function syncExerciseToQdrant(exerciseId: string): Promise<void> {
       try {
         await client.query(
           'UPDATE exercises SET embedding = $1 WHERE id = $2',
-          [JSON.stringify(embedding), exerciseId]
+          [JSON.stringify(embedding), exercise.id]
         );
       } finally {
         client.release();
@@ -82,7 +82,7 @@ export async function syncExerciseToQdrant(exerciseId: string): Promise<void> {
         .filter(Boolean);
 
       const payload = {
-        id: exercise.id,
+        external_id: exercise.external_id,
         title: exercise.title,
         description: exercise.description,
         bodyParts: bodyPartsArray,
