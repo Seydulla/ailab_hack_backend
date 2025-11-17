@@ -79,7 +79,7 @@ if command -v yarn &> /dev/null; then
     YARN_VERSION=$(yarn --version)
     print_warning "Yarn $YARN_VERSION already installed, skipping..."
 else
-    npm install -g yarn
+    sudo npm install -g yarn
     YARN_VERSION=$(yarn --version)
     print_success "Yarn $YARN_VERSION installed"
 fi
