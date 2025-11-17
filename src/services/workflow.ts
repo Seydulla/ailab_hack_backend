@@ -292,6 +292,13 @@ async function processExerciseRecommendation(
       steps: (payload.steps as string[]) || [],
       tips: (payload.tips as string) || '',
       reps: typeof payload.reps === 'number' ? payload.reps : null,
+      duration: typeof payload.duration === 'number' ? payload.duration : null,
+      includeRestPeriod:
+        typeof payload.includeRestPeriod === 'boolean'
+          ? payload.includeRestPeriod
+          : true,
+      restDuration:
+        typeof payload.restDuration === 'number' ? payload.restDuration : 30,
       embedding: null,
       createdAt: payload.createdAt
         ? new Date(payload.createdAt as string)
@@ -391,9 +398,38 @@ Create a complete, personalized workout program following all the guidelines in 
 
             if (exerciseId && exerciseIdMap.has(exerciseId)) {
               validWorkout[key] = value;
-              const exercise = exerciseIdMap.get(exerciseId)!;
-              if (!validatedExercises.find(e => e.id === exercise.id)) {
-                validatedExercises.push(exercise);
+              const baseExercise = exerciseIdMap.get(exerciseId)!;
+
+              const workoutExercise: IExercise = {
+                ...baseExercise,
+                reps:
+                  typeof exerciseEntry.reps === 'number'
+                    ? exerciseEntry.reps
+                    : exerciseEntry.reps === null
+                      ? null
+                      : baseExercise.reps,
+                duration:
+                  typeof exerciseEntry.duration === 'number'
+                    ? exerciseEntry.duration
+                    : exerciseEntry.duration === null
+                      ? null
+                      : baseExercise.duration,
+                includeRestPeriod:
+                  typeof exerciseEntry.includeRestPeriod === 'boolean'
+                    ? exerciseEntry.includeRestPeriod
+                    : (baseExercise.includeRestPeriod ?? true),
+                restDuration:
+                  typeof exerciseEntry.restDuration === 'number'
+                    ? exerciseEntry.restDuration
+                    : (baseExercise.restDuration ?? 30),
+                title:
+                  typeof exerciseEntry.title === 'string'
+                    ? exerciseEntry.title
+                    : baseExercise.title,
+              };
+
+              if (!validatedExercises.find(e => e.id === workoutExercise.id)) {
+                validatedExercises.push(workoutExercise);
               }
               validCount++;
             }

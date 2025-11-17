@@ -234,27 +234,40 @@ Before finalizing:
 
 First, provide a conversational message introducing the workout program. Then include the workout in this exact JSON format:
 
-The JSON structure should be:
+**CRITICAL: Every exercise object MUST include ALL of these fields:**
 - Each exercise is numbered as a key ("1", "2", "3", etc.)
-- Each exercise object contains:
-  * exerciseId: string (MUST be an ID from the available exercises list)
-  * reps: number or null
-  * duration: number or null  
-  * includeRestPeriod: boolean
-  * restDuration: number
-  * title: string
+- Each exercise object MUST contain ALL of the following fields:
+  * **exerciseId**: string (MUST be an ID from the available exercises list) - REQUIRED
+  * **reps**: number or null (number of repetitions, use null if using duration instead) - REQUIRED
+  * **duration**: number or null (duration in seconds, use null if using reps instead) - REQUIRED
+  * **includeRestPeriod**: boolean (whether to include a rest period after this exercise) - REQUIRED
+  * **restDuration**: number (rest duration in seconds, must be a number even if includeRestPeriod is false) - REQUIRED
+  * **title**: string (exercise title) - REQUIRED
+
+**IMPORTANT RULES:**
+- If an exercise uses reps, set duration to null. If it uses duration, set reps to null.
+- includeRestPeriod must be a boolean (true or false)
+- restDuration must always be a number (even if includeRestPeriod is false)
+- All fields are REQUIRED - do not omit any of them
 
 Example JSON structure:
 {
   "1": {
-    "exerciseId": "string (MUST be an ID from the available exercises list)",
-    "reps": number | null,
-    "duration": number | null,
-    "includeRestPeriod": boolean,
-    "restDuration": number,
-    "title": "string"
+    "exerciseId": "ex_001",
+    "reps": 12,
+    "duration": null,
+    "includeRestPeriod": true,
+    "restDuration": 30,
+    "title": "Squats"
   },
-  "2": { ... },
+  "2": {
+    "exerciseId": "ex_002",
+    "reps": null,
+    "duration": 45,
+    "includeRestPeriod": true,
+    "restDuration": 20,
+    "title": "Jumping Jacks"
+  },
   ...
 }
 

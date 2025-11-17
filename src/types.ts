@@ -28,6 +28,9 @@ export interface IExercise {
   steps: string[];
   tips: string;
   reps: number | null;
+  duration: number | null;
+  includeRestPeriod: boolean;
+  restDuration: number;
   embedding: number[] | null;
   createdAt: Date;
   updatedAt: Date;
