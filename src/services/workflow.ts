@@ -344,8 +344,14 @@ async function processExerciseRecommendation(
     };
   }
 
+  const conversationHistory: Message[] = session.conversationHistory || [];
+
   const chat = genAI.chats.create({
     model: 'gemini-2.0-flash',
+    history: conversationHistory.map((msg: Message) => ({
+      role: msg.role,
+      parts: [{ text: msg.content }],
+    })),
     config: {
       systemInstruction: {
         parts: [{ text: EXERCISE_RECOMMENDATION_SYSTEM_PROMPT }],
@@ -505,13 +511,19 @@ Create a complete, personalized workout program following all the guidelines in 
     console.error('Failed to parse and validate exercise response:', error);
   }
 
+  const cleanedResponse = stripDataFromResponse(responseText);
+
+  const fullHistory: Message[] = [
+    ...conversationHistory,
+    { role: 'model' as const, content: cleanedResponse },
+  ];
+
   await updateSession(sessionId, {
     step: 'EXERCISE_CONFIRMATION',
     exerciseRecommendations:
       validatedExercises.length > 0 ? validatedExercises : exercises,
+    conversationHistory: fullHistory,
   });
-
-  const cleanedResponse = stripDataFromResponse(responseText);
 
   return {
     response: cleanedResponse || 'Here is your personalized workout program!',
