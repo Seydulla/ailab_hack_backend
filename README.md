@@ -122,6 +122,19 @@ This project uses:
 
 Pre-commit hooks automatically run ESLint and Prettier on staged files.
 
+## Production Deployment
+
+For production deployment on Ubuntu VM, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+Quick start:
+```bash
+# Automated server setup
+./scripts/setup-server.sh
+
+# Deploy application updates
+./scripts/deploy.sh
+```
+
 ## License
 
 ISC

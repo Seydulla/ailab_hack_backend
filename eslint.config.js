@@ -36,6 +36,6 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['eslint.config.js'],
+    ignores: ['eslint.config.js', 'ecosystem.config.js'],
   }
 );
