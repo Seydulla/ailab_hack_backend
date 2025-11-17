@@ -20,6 +20,8 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: ailab_hack_qdrant
+    profiles:
+      - dev
     ports:
       - '6333:6333'
       - '6334:6334'
