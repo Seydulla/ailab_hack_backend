@@ -154,6 +154,8 @@ function stripDataFromResponse(text: string): string {
     cleaned = cleaned.split('<START_DATA>')[0].trim();
   }
 
+  cleaned = cleaned.replace(/<START_DATA>[\s\S]*/gi, '');
+  cleaned = cleaned.replace(/<END_DATA>[\s\S]*/gi, '');
   cleaned = cleaned.replace(/<PROFILE_DATA>[\s\S]*?<\/PROFILE_DATA>/gi, '');
 
   cleaned = cleaned.replace(/```json\n[\s\S]*?\n```/g, '');
@@ -232,7 +234,6 @@ async function processProfileIntake(
 
   if (extractedProfile && isProfileComplete(extractedProfile)) {
     const profileData: IUserProfile = {
-      id: '',
       userId,
       age: extractedProfile.age!,
       weight: extractedProfile.weight!,
@@ -691,7 +692,7 @@ async function handleProfileConfirmation(
     });
 
     return {
-      response: responseText,
+      response: stripDataFromResponse(responseText),
       step: 'PROFILE_INTAKE',
     };
   }
@@ -731,7 +732,7 @@ async function handleProfileConfirmation(
   });
 
   return {
-    response: responseText,
+    response: stripDataFromResponse(responseText),
     step: 'PROFILE_CONFIRMATION',
     action: 'CONFIRMATION',
     data: { profileData: session.profileData },
@@ -824,7 +825,7 @@ async function handleExerciseConfirmation(
     });
 
     return {
-      response: responseText,
+      response: stripDataFromResponse(responseText),
       step: 'EXERCISE_CONFIRMATION',
       action: 'CONFIRMATION',
       data: { exercises: session.exerciseRecommendations || [] },
@@ -865,7 +866,7 @@ async function handleExerciseConfirmation(
   });
 
   return {
-    response: responseText,
+    response: stripDataFromResponse(responseText),
     step: 'EXERCISE_CONFIRMATION',
     action: 'CONFIRMATION',
     data: { exercises: session.exerciseRecommendations || [] },

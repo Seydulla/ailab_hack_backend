@@ -3,7 +3,6 @@ export type DifficultyLevel = 'EASY' | 'MEDIUM' | 'HARD';
 export type Position = 'STANDING' | 'SEATED' | 'FLOOR';
 
 export interface IUserProfile {
-  id: string;
   userId: string;
   age: number;
   weight: number;
