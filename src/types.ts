@@ -31,7 +31,11 @@ export interface IExercise {
   duration: number | null;
   includeRestPeriod: boolean;
   restDuration: number;
-  embedding: number[] | null;
+  thumbnail_URL?: string | null;
+  video_URL?: string | null;
+  male_thumbnail_URL?: string | null;
+  male_video_URL?: string | null;
+  embedding?: number[] | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +64,10 @@ export interface ExerciseRow {
   position: string;
   steps: string;
   tips: string;
+  thumbnail_URL?: string | null;
+  video_URL?: string | null;
+  male_thumbnail_URL?: string | null;
+  male_video_URL?: string | null;
   created_at: Date;
   updated_at: Date;
 }

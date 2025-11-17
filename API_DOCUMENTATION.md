@@ -263,7 +263,13 @@ Confirm the recommended exercises with the user
         ],
         "tips": "Keep your knees aligned with your toes",
         "reps": 12,
-        "embedding": null,
+        "duration": null,
+        "includeRestPeriod": true,
+        "restDuration": 60,
+        "thumbnail_URL": "https://cdn.kinestex.com/uploads/example_thumbnail.webp",
+        "video_URL": "https://cdn.kinestex.com/uploads/compressed/example_video.mp4",
+        "male_thumbnail_URL": "https://cdn.kinestex.com/media/videos/thumbnails/Squats_Male.jpg",
+        "male_video_URL": "https://cdn.kinestex.com/media/videos/compressed/Squats_Male_compressed.mp4",
         "createdAt": "2024-01-15T10:30:00.000Z",
         "updatedAt": "2024-01-15T10:30:00.000Z"
       },
@@ -282,7 +288,13 @@ Confirm the recommended exercises with the user
         ],
         "tips": "Keep your body in a straight line",
         "reps": 10,
-        "embedding": null,
+        "duration": null,
+        "includeRestPeriod": true,
+        "restDuration": 45,
+        "thumbnail_URL": "https://cdn.kinestex.com/uploads/pushup_thumbnail.webp",
+        "video_URL": "https://cdn.kinestex.com/uploads/compressed/pushup_video.mp4",
+        "male_thumbnail_URL": null,
+        "male_video_URL": null,
         "createdAt": "2024-01-15T10:30:00.000Z",
         "updatedAt": "2024-01-15T10:30:00.000Z"
       }
@@ -391,7 +403,13 @@ Confirm the recommended exercises with the user
         ],
         "tips": "Keep your front knee aligned with your ankle",
         "reps": 12,
-        "embedding": null,
+        "duration": null,
+        "includeRestPeriod": true,
+        "restDuration": 30,
+        "thumbnail_URL": "https://cdn.kinestex.com/uploads/lunge_thumbnail.webp",
+        "video_URL": "https://cdn.kinestex.com/uploads/compressed/lunge_video.mp4",
+        "male_thumbnail_URL": "https://cdn.kinestex.com/media/videos/thumbnails/Lunges_Male.jpg",
+        "male_video_URL": "https://cdn.kinestex.com/media/videos/compressed/Lunges_Male_compressed.mp4",
         "createdAt": "2024-01-15T10:30:00.000Z",
         "updatedAt": "2024-01-15T10:30:00.000Z"
       }
@@ -436,8 +454,15 @@ interface IExercise {
   position: 'STANDING' | 'SEATED' | 'FLOOR';
   steps: string[]; // Array of instruction steps
   tips: string;
-  reps: number | null;
-  embedding: number[] | null;
+  reps: number | null; // Number of repetitions (null if using duration instead)
+  duration: number | null; // Duration in seconds (null if using reps instead)
+  includeRestPeriod: boolean; // Whether to include a rest period after this exercise
+  restDuration: number; // Rest duration in seconds
+  thumbnail_URL?: string | null; // Optional thumbnail image URL
+  video_URL?: string | null; // Optional video URL
+  male_thumbnail_URL?: string | null; // Optional male-specific thumbnail URL
+  male_video_URL?: string | null; // Optional male-specific video URL
+  embedding?: number[] | null; // Optional embedding vector (not included in recommendations)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -555,7 +580,13 @@ EXERCISE_CONFIRMATION
    - The conversation history is automatically maintained in Redis
    - Simply respond to the last AI message
 
-3. **Error Handling:**
+3. **Exercise Data:**
+   - Exercise data (title, description, steps, tips, URLs, etc.) is always fetched from the database
+   - Only the `exerciseId` from Gemini is used to look up exercises
+   - Workout-specific fields (`reps`, `duration`, `includeRestPeriod`, `restDuration`) come from Gemini's recommendations
+   - This ensures data accuracy and prevents hallucination
+
+4. **Error Handling:**
    - Always check the `step` field in the response to understand current state
    - Handle `action: 'CONFIRMATION'` appropriately in your UI
    - Implement retry logic for 500 errors

@@ -21,6 +21,7 @@ import type {
   IExercise,
   Gender,
   SessionState,
+  ExerciseRow,
 } from '../types';
 
 interface ProfileDataJSON {
@@ -32,6 +33,26 @@ interface ProfileDataJSON {
   injuries: string | null;
   lifestyle: string | null;
   equipment: string | null;
+}
+
+async function fetchExerciseByExternalId(
+  externalId: string
+): Promise<ExerciseRow | null> {
+  const client = await pool.connect();
+  try {
+    const exerciseResult = await client.query<ExerciseRow>(
+      'SELECT * FROM exercises WHERE external_id = $1',
+      [externalId]
+    );
+
+    if (exerciseResult.rows.length === 0) {
+      return null;
+    }
+
+    return exerciseResult.rows[0];
+  } finally {
+    client.release();
+  }
 }
 
 function extractProfileData(text: string): Partial<IUserProfile> | null {
@@ -299,7 +320,6 @@ async function processExerciseRecommendation(
           : true,
       restDuration:
         typeof payload.restDuration === 'number' ? payload.restDuration : 30,
-      embedding: null,
       createdAt: payload.createdAt
         ? new Date(payload.createdAt as string)
         : new Date(),
@@ -397,37 +417,71 @@ Create a complete, personalized workout program following all the guidelines in 
                 : '';
 
             if (exerciseId && exerciseIdMap.has(exerciseId)) {
-              validWorkout[key] = value;
-              const baseExercise = exerciseIdMap.get(exerciseId)!;
+              const dbExercise = await fetchExerciseByExternalId(exerciseId);
+              if (!dbExercise) {
+                console.warn(
+                  `Exercise with external_id ${exerciseId} not found in database, skipping`
+                );
+                continue;
+              }
+
+              const bodyPartsText =
+                typeof dbExercise.body_parts === 'string'
+                  ? dbExercise.body_parts
+                  : String(dbExercise.body_parts || '');
+              const stepsText =
+                typeof dbExercise.steps === 'string'
+                  ? dbExercise.steps
+                  : String(dbExercise.steps || '');
+
+              const bodyPartsArray = bodyPartsText
+                .split(',')
+                .map(part => part.trim())
+                .filter(Boolean);
+              const stepsArray = stepsText
+                .split('\n')
+                .map(step => step.trim())
+                .filter(Boolean);
 
               const workoutExercise: IExercise = {
-                ...baseExercise,
+                id: dbExercise.external_id,
+                title: dbExercise.title,
+                bodyParts: bodyPartsArray,
+                description: dbExercise.description,
+                difLevel: dbExercise.dif_level as IExercise['difLevel'],
+                commonMistakes: dbExercise.common_mistakes,
+                position: dbExercise.position as IExercise['position'],
+                steps: stepsArray,
+                tips: dbExercise.tips,
                 reps:
                   typeof exerciseEntry.reps === 'number'
                     ? exerciseEntry.reps
                     : exerciseEntry.reps === null
                       ? null
-                      : baseExercise.reps,
+                      : null,
                 duration:
                   typeof exerciseEntry.duration === 'number'
                     ? exerciseEntry.duration
                     : exerciseEntry.duration === null
                       ? null
-                      : baseExercise.duration,
+                      : null,
                 includeRestPeriod:
                   typeof exerciseEntry.includeRestPeriod === 'boolean'
                     ? exerciseEntry.includeRestPeriod
-                    : (baseExercise.includeRestPeriod ?? true),
+                    : true,
                 restDuration:
                   typeof exerciseEntry.restDuration === 'number'
                     ? exerciseEntry.restDuration
-                    : (baseExercise.restDuration ?? 30),
-                title:
-                  typeof exerciseEntry.title === 'string'
-                    ? exerciseEntry.title
-                    : baseExercise.title,
+                    : 30,
+                thumbnail_URL: dbExercise.thumbnail_URL || null,
+                video_URL: dbExercise.video_URL || null,
+                male_thumbnail_URL: dbExercise.male_thumbnail_URL || null,
+                male_video_URL: dbExercise.male_video_URL || null,
+                createdAt: dbExercise.created_at,
+                updatedAt: dbExercise.updated_at,
               };
 
+              validWorkout[key] = value;
               if (!validatedExercises.find(e => e.id === workoutExercise.id)) {
                 validatedExercises.push(workoutExercise);
               }

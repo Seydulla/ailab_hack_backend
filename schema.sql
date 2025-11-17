@@ -9,6 +9,10 @@ CREATE TABLE IF NOT EXISTS exercises (
   position VARCHAR(20) NOT NULL CHECK (position IN ('STANDING', 'SEATED', 'FLOOR')),
   steps TEXT NOT NULL,
   tips TEXT NOT NULL,
+  thumbnail_URL TEXT,
+  video_URL TEXT,
+  male_thumbnail_URL TEXT,
+  male_video_URL TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
