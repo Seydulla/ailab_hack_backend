@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^1.29.1",
     "@qdrant/js-client-rest": "^1.15.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

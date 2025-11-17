@@ -79,6 +79,7 @@ The server will verify database connectivity before starting.
 - `DATABASE_URL` - PostgreSQL connection string (default: `postgresql://postgres:postgres@localhost:5432/ailab_hack`)
 - `QDRANT_URL` - Qdrant vector database URL (default: `http://localhost:6333`)
 - `QDRANT_API_KEY` - Qdrant API key (optional, leave empty for local development)
+- `GEMINI_API_KEY` - Google Gemini API key (get from [Google AI Studio](https://aistudio.google.com/))
 
 ## Project Structure
 
