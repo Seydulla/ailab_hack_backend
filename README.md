@@ -36,13 +36,24 @@ cp .env.example .env
 
 4. Update `.env` with your configuration
 
-5. Start the PostgreSQL database:
+5. Start all services (PostgreSQL and Qdrant):
 
 ```bash
-yarn db:up
+yarn docker:up
 ```
 
-The database will automatically initialize with the schema from `schema.sql` on first startup.
+This will start:
+
+- **PostgreSQL** on port `5432` (database will automatically initialize with `schema.sql` on first startup)
+- **Qdrant** on ports `6333` (REST API/Web UI) and `6334` (gRPC API)
+
+6. Start the development server:
+
+```bash
+yarn dev
+```
+
+The server will verify database connectivity before starting.
 
 ## Available Scripts
 
@@ -53,18 +64,21 @@ The database will automatically initialize with the schema from `schema.sql` on 
 - `yarn format` - Format code with Prettier
 - `yarn type-check` - Run TypeScript type checking without emitting files
 
-### Database Scripts
+### Docker Scripts
 
-- `yarn db:up` - Start PostgreSQL database container
-- `yarn db:down` - Stop PostgreSQL database container
-- `yarn db:restart` - Restart PostgreSQL database container
-- `yarn db:logs` - View PostgreSQL database logs
+- `yarn docker:up` - Start all services (PostgreSQL and Qdrant)
+- `yarn docker:down` - Stop all services
+- `yarn docker:restart` - Restart all services
+- `yarn docker:logs` - View logs from all services
+- `yarn docker:ps` - Show status of all services
 
 ## Environment Variables
 
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment mode (development/production)
 - `DATABASE_URL` - PostgreSQL connection string (default: `postgresql://postgres:postgres@localhost:5432/ailab_hack`)
+- `QDRANT_URL` - Qdrant vector database URL (default: `http://localhost:6333`)
+- `QDRANT_API_KEY` - Qdrant API key (optional, leave empty for local development)
 
 ## Project Structure
 
@@ -77,12 +91,25 @@ src/
 
 ## Development
 
+### Quick Start
+
+1. Start all services: `yarn docker:up`
+2. Start the development server: `yarn dev`
+
 The development server runs on `http://localhost:3000` by default. The server includes:
 
 - Health check endpoint at `/health`
 - CORS middleware enabled
 - JSON body parsing
 - Error handling middleware
+- Database connection verification on startup
+
+### Services
+
+- **API Server**: `http://localhost:3000`
+- **PostgreSQL**: `localhost:5432`
+- **Qdrant Web UI**: `http://localhost:6333/dashboard`
+- **Qdrant REST API**: `http://localhost:6333`
 
 ## Code Quality
 
