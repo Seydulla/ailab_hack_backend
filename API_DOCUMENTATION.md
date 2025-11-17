@@ -106,7 +106,7 @@ Collect user profile information (age, weight, height, gender, goals, injuries, 
 
 ### Step 2: PROFILE_CONFIRMATION
 
-Confirm the collected profile data with the user
+Confirm the collected profile data with the user. Users should respond with **"CONFIRM"** to proceed or **"CANCEL"** to make changes.
 
 ### Step 3: EXERCISE_RECOMMENDATION
 
@@ -114,7 +114,18 @@ Generate personalized exercise recommendations based on the user profile
 
 ### Step 4: EXERCISE_CONFIRMATION
 
-Confirm the recommended exercises with the user
+Confirm the recommended exercises with the user. Users should respond with **"CONFIRM"** to proceed or **"CANCEL"** to request changes or new recommendations.
+
+---
+
+## Confirmation and Cancellation
+
+When the API response includes `action: 'CONFIRMATION'` and the step is either `PROFILE_CONFIRMATION` or `EXERCISE_CONFIRMATION`, users should respond with:
+
+- **"CONFIRM"** - To proceed with the current data/recommendations
+- **"CANCEL"** - To make changes or request modifications
+
+**Important:** Use only the exact words "CONFIRM" or "CANCEL" (case-insensitive). These are the recommended commands for confirmation steps.
 
 ---
 
@@ -316,7 +327,7 @@ Confirm the recommended exercises with the user
   "messages": [
     {
       "role": "user",
-      "content": "Yes, I'll do this workout"
+      "content": "Confirm"
     }
   ]
 }
@@ -326,8 +337,8 @@ Confirm the recommended exercises with the user
 
 ```json
 {
-  "response": "Great! Your workout is confirmed. You're all set to begin your fitness journey. Good luck with your workout!",
-  "step": "EXERCISE_CONFIRMATION"
+  "response": "Great! Your workout is confirmed. Please complete the exercises and submit your results when done.",
+  "step": "EXERCISE_SUMMARY"
 }
 ```
 
@@ -344,7 +355,7 @@ Confirm the recommended exercises with the user
   "messages": [
     {
       "role": "user",
-      "content": "Cancel, I want to change my weight"
+      "content": "Cancel"
     }
   ]
 }
@@ -354,7 +365,7 @@ Confirm the recommended exercises with the user
 
 ```json
 {
-  "response": "No problem! What would you like to change about your weight? Please provide the correct value.",
+  "response": "No problem! What would you like to change or add to your profile?",
   "step": "PROFILE_INTAKE"
 }
 ```
@@ -586,7 +597,13 @@ EXERCISE_CONFIRMATION
    - Workout-specific fields (`reps`, `duration`, `includeRestPeriod`, `restDuration`) come from Gemini's recommendations
    - This ensures data accuracy and prevents hallucination
 
-4. **Error Handling:**
+4. **Confirmation and Cancellation:**
+   - When `action: 'CONFIRMATION'` is present, use only "CONFIRM" or "CANCEL" in user responses
+   - "CONFIRM" proceeds to the next step
+   - "CANCEL" allows users to make changes or request modifications
+   - These commands are case-insensitive
+
+5. **Error Handling:**
    - Always check the `step` field in the response to understand current state
    - Handle `action: 'CONFIRMATION'` appropriately in your UI
    - Implement retry logic for 500 errors

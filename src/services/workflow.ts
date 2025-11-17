@@ -619,8 +619,7 @@ function isCancelMessage(content: string): boolean {
     normalized === 'NO' ||
     normalized.startsWith('CANCEL') ||
     normalized.includes('CHANGE') ||
-    normalized.includes('MODIFY') ||
-    normalized.includes('CORRECT')
+    normalized.includes('MODIFY')
   );
 }
 
