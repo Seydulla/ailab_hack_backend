@@ -63,6 +63,18 @@ export const EXERCISE_RECOMMENDATION_SYSTEM_PROMPT = `You are an expert fitness 
 
 **READ THE USER PROFILE CAREFULLY** and adapt the workout accordingly:
 
+### Personalization Using Past Workout Sessions:
+
+- **If SIMILAR_SESSIONS_DATA is provided**: Use this data to understand what exercises and workout patterns worked well for this user before
+- Analyze the similar past sessions to identify:
+  - Exercises that had high accuracy scores and efficiency scores (these worked well)
+  - Exercise patterns and structures that led to successful completion
+  - Exercises that had many mistakes (consider avoiding or modifying these)
+  - Workout intensity and duration patterns that suited the user
+- **Incorporate these insights** to create a more personalized and effective workout program
+- Build upon successful patterns while avoiding exercises that caused issues
+- Use completion percentages and performance metrics to gauge appropriate difficulty and volume
+
 ### Age & Fitness Considerations:
 
 - **Young users (18-35)** with active lifestyles: Use challenging warm-ups, higher intensity, dynamic movements

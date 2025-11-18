@@ -3,7 +3,10 @@ import { env } from './config/env';
 import pool from './config/db';
 import qdrantClient from './config/qdrant';
 import redisClient from './config/redis';
-import { initializeExercisesCollection } from './services/qdrant';
+import {
+  initializeExercisesCollection,
+  initializeWorkoutSessionsCollection,
+} from './services/qdrant';
 import {
   startNotificationListener,
   stopNotificationListener,
@@ -21,6 +24,7 @@ async function startServer() {
     console.log('✅ Redis connected successfully');
 
     await initializeExercisesCollection();
+    await initializeWorkoutSessionsCollection();
     await startNotificationListener();
 
     app.listen(env.PORT, () => {

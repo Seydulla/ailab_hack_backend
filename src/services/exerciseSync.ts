@@ -1,6 +1,6 @@
 import pool from '../config/db';
 import qdrantClient from '../config/qdrant';
-import { embedText } from '../utils';
+import { embedText, buildEmbeddingText, withRetry } from '../utils';
 import { EXERCISES_COLLECTION_NAME } from './qdrant';
 import type { ExerciseRow } from '../types';
 
@@ -22,27 +22,9 @@ async function fetchExercise(id: string): Promise<ExerciseRow | null> {
   }
 }
 
-function buildEmbeddingText(exercise: ExerciseRow): string {
-  const parts = [
-    exercise.title,
-    exercise.description,
-    exercise.body_parts,
-    exercise.dif_level,
-    exercise.common_mistakes,
-    exercise.position,
-    exercise.steps,
-    exercise.tips,
-  ].filter(Boolean);
-
-  return parts.join('\n');
-}
-
 export async function syncExerciseToQdrant(exerciseId: string): Promise<void> {
-  const maxRetries = 3;
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
+  return withRetry(
+    async () => {
       const exercise = await fetchExercise(exerciseId);
 
       if (!exercise) {
@@ -97,50 +79,27 @@ export async function syncExerciseToQdrant(exerciseId: string): Promise<void> {
       });
 
       console.log(`✅ Synced exercise ${exerciseId} to Qdrant`);
-      return;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(
-        `❌ Failed to sync exercise ${exerciseId} (attempt ${attempt}/${maxRetries}):`,
-        lastError
-      );
-
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
+    },
+    {
+      operationName: `sync exercise ${exerciseId} to Qdrant`,
     }
-  }
-
-  throw lastError || new Error('Failed to sync exercise to Qdrant');
+  );
 }
 
 export async function deleteExerciseFromQdrant(
   exerciseId: string
 ): Promise<void> {
-  const maxRetries = 3;
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
+  return withRetry(
+    async () => {
       await qdrantClient.delete(EXERCISES_COLLECTION_NAME, {
         wait: true,
         points: [exerciseId],
       });
 
       console.log(`✅ Deleted exercise ${exerciseId} from Qdrant`);
-      return;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(
-        `❌ Failed to delete exercise ${exerciseId} from Qdrant (attempt ${attempt}/${maxRetries}):`,
-        lastError
-      );
-
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
+    },
+    {
+      operationName: `delete exercise ${exerciseId} from Qdrant`,
     }
-  }
-
-  throw lastError || new Error('Failed to delete exercise from Qdrant');
+  );
 }

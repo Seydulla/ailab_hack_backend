@@ -71,6 +71,41 @@ export interface ExerciseRow {
   updated_at: Date;
 }
 
+export interface ExerciseResultMistake {
+  mistake: string;
+  count: number;
+}
+
+export interface ExerciseResultItem {
+  exercise_title: string;
+  time_spent: number;
+  repeats: number;
+  total_reps: number;
+  total_duration: number;
+  calories: number;
+  exercise_id: string;
+  mistakes: ExerciseResultMistake[];
+  average_accuracy?: number;
+}
+
+export interface ExerciseResults {
+  target_duration_seconds: number;
+  completed_reps_count: number;
+  target_reps_count: number;
+  calories_burned: number;
+  completion_percentage: number;
+  total_mistakes: number;
+  accuracy_score: number;
+  efficiency_score: number;
+  total_exercise: number;
+  actual_hold_time_seconds: number;
+  target_hold_time_seconds: number;
+  exercises: ExerciseResultItem[];
+  notes?: string;
+  volume?: number;
+  qualityScore?: number;
+}
+
 export interface PastSessionRow {
   id: string;
   session_id: string;
@@ -79,6 +114,17 @@ export interface PastSessionRow {
   volume: number;
   quality_score: number;
   notes: string | null;
+  target_duration_seconds?: number | null;
+  completed_reps_count?: number | null;
+  target_reps_count?: number | null;
+  calories_burned?: number | null;
+  completion_percentage?: number | null;
+  total_mistakes?: number | null;
+  accuracy_score?: number | null;
+  efficiency_score?: number | null;
+  total_exercise?: number | null;
+  actual_hold_time_seconds?: number | null;
+  target_hold_time_seconds?: number | null;
   created_at: Date;
   updated_at: Date;
 }
