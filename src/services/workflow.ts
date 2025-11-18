@@ -13,6 +13,7 @@ import {
   PROFILE_INTAKE_SYSTEM_PROMPT,
   EXERCISE_RECOMMENDATION_SYSTEM_PROMPT,
   EXERCISE_SUMMARY_SYSTEM_PROMPT,
+  SEARCH_QUERY_REFINEMENT_SYSTEM_PROMPT,
 } from '../constants';
 import type {
   WorkflowResponse,
@@ -280,6 +281,139 @@ async function processProfileIntake(
   };
 }
 
+interface SearchQueryRefinement {
+  refinedQuery: string;
+  excludeBodyParts: string[];
+}
+
+async function refineSearchQueryWithGemini(
+  profileText: string,
+  injuries: string
+): Promise<SearchQueryRefinement> {
+  const chat = genAI.chats.create({
+    model: 'gemini-2.0-flash',
+    config: {
+      systemInstruction: {
+        parts: [{ text: SEARCH_QUERY_REFINEMENT_SYSTEM_PROMPT }],
+      },
+    },
+  });
+
+  const prompt = `User profile: ${profileText}\nInjuries: ${injuries}\n\nCreate a refined search query and identify body parts to exclude based on injuries.`;
+  const response = await chat.sendMessage({ message: prompt });
+  const responseText = response.text || '';
+
+  console.log('[SEARCH_QUERY_REFINEMENT] Raw Gemini response:', {
+    injuries,
+    responseLength: responseText.length,
+    responseText,
+    hasSearchRefinement: responseText.includes('<SEARCH_REFINEMENT>'),
+    hasStartData: responseText.includes('<START_DATA>'),
+  });
+
+  try {
+    const refinementMatch = responseText.match(
+      /<SEARCH_REFINEMENT>([\s\S]*?)<\/SEARCH_REFINEMENT>/
+    );
+    const dataMatch =
+      responseText.match(/<START_DATA>([\s\S]*?)<END_DATA>/) ||
+      responseText.match(/```json\n([\s\S]*?)\n```/) ||
+      responseText.match(/```\n([\s\S]*?)\n```/) ||
+      responseText.match(/\{[\s\S]*\}/);
+
+    if (refinementMatch || dataMatch) {
+      const dataStr = refinementMatch
+        ? refinementMatch[1].trim()
+        : dataMatch?.[1].trim() || '';
+      let parsed: SearchQueryRefinement;
+
+      try {
+        parsed = toonDecode(dataStr) as SearchQueryRefinement;
+      } catch {
+        try {
+          parsed = JSON.parse(dataStr);
+        } catch {
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('Could not parse refinement response');
+          }
+        }
+      }
+
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        typeof parsed.refinedQuery === 'string'
+      ) {
+        let excludeBodyParts: string[] = [];
+        if (Array.isArray(parsed.excludeBodyParts)) {
+          excludeBodyParts = parsed.excludeBodyParts;
+        } else if (typeof parsed.excludeBodyParts === 'string') {
+          try {
+            const parsedArray = JSON.parse(parsed.excludeBodyParts);
+            if (Array.isArray(parsedArray)) {
+              excludeBodyParts = parsedArray;
+            }
+          } catch {
+            console.warn(
+              '[SEARCH_QUERY_REFINEMENT] Failed to parse excludeBodyParts string as JSON:',
+              parsed.excludeBodyParts
+            );
+          }
+        }
+
+        const result = {
+          refinedQuery: parsed.refinedQuery,
+          excludeBodyParts,
+        };
+        console.log('[SEARCH_QUERY_REFINEMENT] Parsed result:', {
+          injuries,
+          refinedQuery: result.refinedQuery,
+          excludeBodyParts: result.excludeBodyParts,
+          excludeBodyPartsType: typeof parsed.excludeBodyParts,
+          excludeBodyPartsIsArray: Array.isArray(parsed.excludeBodyParts),
+          rawParsed: parsed,
+        });
+        return result;
+      } else {
+        console.warn(
+          '[SEARCH_QUERY_REFINEMENT] Parsed object missing refinedQuery:',
+          {
+            injuries,
+            parsed,
+            hasRefinedQuery:
+              parsed && typeof parsed === 'object' && 'refinedQuery' in parsed,
+          }
+        );
+      }
+    } else {
+      console.warn(
+        '[SEARCH_QUERY_REFINEMENT] No data match found in response:',
+        {
+          injuries,
+          responseText,
+        }
+      );
+    }
+  } catch (error) {
+    console.error(
+      '[SEARCH_QUERY_REFINEMENT] Failed to parse search query refinement:',
+      {
+        injuries,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      }
+    );
+  }
+
+  return {
+    refinedQuery: profileText,
+    excludeBodyParts: [],
+  };
+}
+
 async function processExerciseRecommendation(
   sessionId: string
 ): Promise<WorkflowResponse> {
@@ -295,14 +429,72 @@ async function processExerciseRecommendation(
   const profile: IUserProfile = session.profileData;
   const profileText = `Age: ${profile.age}, Weight: ${profile.weight}kg, Height: ${profile.height}cm, Gender: ${profile.gender}, Goals: ${profile.goals}, ${profile.lifestyle ? `, Lifestyle: ${profile.lifestyle}` : ''}${profile.equipment ? `, Equipment: ${profile.equipment}` : ''}`;
 
-  const embedding = await embedText(profileText);
+  const refinement = await refineSearchQueryWithGemini(
+    profileText,
+    profile.injuries
+  );
 
-  const searchResults = await qdrantClient.search(EXERCISES_COLLECTION_NAME, {
-    vector: embedding,
-    limit: 50,
+  console.log('[EXERCISE_RECOMMENDATION] Search query refinement:', {
+    sessionId,
+    refinedQuery: refinement.refinedQuery,
+    excludeBodyParts: refinement.excludeBodyParts,
+    userInjuries: profile.injuries,
   });
 
+  const embedding = await embedText(refinement.refinedQuery);
+
+  const searchOptions: {
+    vector: number[];
+    limit: number;
+    filter?: {
+      must_not?: Array<{
+        key: string;
+        match: { any: string[] };
+      }>;
+    };
+  } = {
+    vector: embedding,
+    limit: 50,
+  };
+
+  if (refinement.excludeBodyParts.length > 0) {
+    searchOptions.filter = {
+      must_not: [
+        {
+          key: 'bodyParts',
+          match: {
+            any: refinement.excludeBodyParts,
+          },
+        },
+      ],
+    };
+  }
+
+  console.log('[EXERCISE_RECOMMENDATION] Qdrant search options:', {
+    sessionId,
+    collection: EXERCISES_COLLECTION_NAME,
+    limit: searchOptions.limit,
+    hasFilter: !!searchOptions.filter,
+    excludeBodyParts: refinement.excludeBodyParts,
+  });
+
+  const searchResults = await qdrantClient.search(
+    EXERCISES_COLLECTION_NAME,
+    searchOptions
+  );
+
   const points = Array.isArray(searchResults) ? searchResults : [];
+  console.log('[EXERCISE_RECOMMENDATION] Qdrant search results:', {
+    sessionId,
+    totalResults: points.length,
+    sampleExercises: points.slice(0, 5).map(p => ({
+      id: (p.payload as Record<string, unknown>)?.external_id || p.id,
+      title: (p.payload as Record<string, unknown>)?.title || 'N/A',
+      bodyParts: (p.payload as Record<string, unknown>)?.bodyParts || [],
+      score: p.score,
+    })),
+  });
+
   const exercises: IExercise[] = points.map(point => {
     const payload =
       point.payload &&
@@ -337,6 +529,18 @@ async function processExerciseRecommendation(
         ? new Date(payload.updatedAt as string)
         : new Date(),
     };
+  });
+
+  console.log('[EXERCISE_RECOMMENDATION] Exercises mapped from Qdrant:', {
+    sessionId,
+    totalExercises: exercises.length,
+    exerciseIds: exercises.map(e => e.id),
+    exerciseTitles: exercises.map(e => e.title),
+    exercisesWithBodyParts: exercises.map(e => ({
+      id: e.id,
+      title: e.title,
+      bodyParts: e.bodyParts,
+    })),
   });
 
   if (exercises.length === 0) {
@@ -408,8 +612,23 @@ ${exercisesToon}
 
 Create a complete, personalized workout program following all the guidelines in your system instructions.`;
 
+  console.log('[EXERCISE_RECOMMENDATION] Sending to Gemini:', {
+    sessionId,
+    profileData,
+    exerciseCount: exerciseListData.length,
+    exerciseIds: exerciseListData.map(e => e.id),
+  });
+
   const response = await chat.sendMessage({ message: prompt });
   let responseText = response.text || '';
+
+  console.log('[EXERCISE_RECOMMENDATION] Raw Gemini response:', {
+    sessionId,
+    responseLength: responseText.length,
+    hasWorkoutData: responseText.includes('<WORKOUT_DATA>'),
+    hasStartData: responseText.includes('<START_DATA>'),
+    responsePreview: responseText.substring(0, 500),
+  });
 
   const validatedExercises: IExercise[] = [];
 
@@ -444,9 +663,19 @@ Create a complete, personalized workout program following all the guidelines in 
         }
       }
 
+      console.log(
+        '[EXERCISE_RECOMMENDATION] Parsed workout data from Gemini:',
+        {
+          sessionId,
+          parsedKeys: Object.keys(parsed),
+          exerciseCount: Object.keys(parsed).length,
+        }
+      );
+
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         const validWorkout: Record<string, unknown> = {};
         let validCount = 0;
+        const skippedExercises: string[] = [];
 
         for (const [key, value] of Object.entries(parsed)) {
           if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -460,8 +689,9 @@ Create a complete, personalized workout program following all the guidelines in 
               const dbExercise = await fetchExerciseByExternalId(exerciseId);
               if (!dbExercise) {
                 console.warn(
-                  `Exercise with external_id ${exerciseId} not found in database, skipping`
+                  `[EXERCISE_RECOMMENDATION] Exercise with external_id ${exerciseId} not found in database, skipping`
                 );
+                skippedExercises.push(exerciseId);
                 continue;
               }
 
@@ -524,11 +754,35 @@ Create a complete, personalized workout program following all the guidelines in 
               validWorkout[key] = value;
               if (!validatedExercises.find(e => e.id === workoutExercise.id)) {
                 validatedExercises.push(workoutExercise);
+                console.log(
+                  `[EXERCISE_RECOMMENDATION] Validated exercise: ${workoutExercise.id} - ${workoutExercise.title}`,
+                  {
+                    sessionId,
+                    bodyParts: workoutExercise.bodyParts,
+                    reps: workoutExercise.reps,
+                    duration: workoutExercise.duration,
+                  }
+                );
               }
               validCount++;
+            } else {
+              if (exerciseId) {
+                console.warn(
+                  `[EXERCISE_RECOMMENDATION] Exercise ID ${exerciseId} from Gemini not found in Qdrant results, skipping`
+                );
+                skippedExercises.push(exerciseId);
+              }
             }
           }
         }
+
+        console.log('[EXERCISE_RECOMMENDATION] Validation summary:', {
+          sessionId,
+          validCount,
+          skippedCount: skippedExercises.length,
+          skippedExerciseIds: skippedExercises,
+          validatedExerciseIds: validatedExercises.map(e => e.id),
+        });
 
         if (validCount > 0) {
           const validToonStr = toonEncode(validWorkout);
@@ -548,10 +802,34 @@ Create a complete, personalized workout program following all the guidelines in 
       }
     }
   } catch (error) {
-    console.error('Failed to parse and validate exercise response:', error);
+    console.error(
+      '[EXERCISE_RECOMMENDATION] Failed to parse and validate exercise response:',
+      {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      }
+    );
   }
 
   const cleanedResponse = stripDataFromResponse(responseText);
+
+  const finalExercises =
+    validatedExercises.length > 0 ? validatedExercises : exercises;
+
+  console.log('[EXERCISE_RECOMMENDATION] Final result:', {
+    sessionId,
+    usingValidatedExercises: validatedExercises.length > 0,
+    finalExerciseCount: finalExercises.length,
+    finalExerciseIds: finalExercises.map(e => e.id),
+    finalExercises: finalExercises.map(e => ({
+      id: e.id,
+      title: e.title,
+      bodyParts: e.bodyParts,
+    })),
+    cleanedResponseLength: cleanedResponse.length,
+    cleanedResponsePreview: cleanedResponse.substring(0, 200),
+  });
 
   const fullHistory: Message[] = [
     ...conversationHistory,
@@ -560,8 +838,7 @@ Create a complete, personalized workout program following all the guidelines in 
 
   await updateSession(sessionId, {
     step: 'EXERCISE_CONFIRMATION',
-    exerciseRecommendations:
-      validatedExercises.length > 0 ? validatedExercises : exercises,
+    exerciseRecommendations: finalExercises,
     conversationHistory: fullHistory,
   });
 
@@ -570,7 +847,7 @@ Create a complete, personalized workout program following all the guidelines in 
     action: 'CONFIRMATION',
     step: 'EXERCISE_CONFIRMATION',
     data: {
-      exercises: validatedExercises.length > 0 ? validatedExercises : exercises,
+      exercises: finalExercises,
     },
   };
 }
