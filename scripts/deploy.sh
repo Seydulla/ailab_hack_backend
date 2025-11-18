@@ -33,7 +33,13 @@ else
 fi
 
 echo "🔄 Restarting PM2 process..."
-pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+if pm2 list | grep -q "ailab-hack-backend"; then
+    echo "📝 Reloading application with updated environment variables..."
+    pm2 reload ecosystem.config.js --update-env || pm2 restart ecosystem.config.js --update-env
+else
+    echo "🚀 Starting PM2 process for the first time..."
+    pm2 start ecosystem.config.js
+fi
 
 echo "⏳ Waiting for application to start..."
 sleep 5
