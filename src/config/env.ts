@@ -9,6 +9,7 @@ export const env = {
   QDRANT_URL: process.env.QDRANT_URL || 'http://localhost:6333',
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
 };

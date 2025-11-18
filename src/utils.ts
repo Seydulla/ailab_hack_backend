@@ -6,6 +6,7 @@ import {
 } from '@toon-format/toon';
 import genAI from './config/gemini';
 import pool from './config/db';
+import { env } from './config/env';
 import type {
   ExerciseRow,
   IUserProfile,
@@ -314,7 +315,7 @@ async function refineSearchQueryWithGemini(
   injuries: string
 ): Promise<SearchQueryRefinement> {
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     config: {
       systemInstruction: {
         parts: [{ text: SEARCH_QUERY_REFINEMENT_SYSTEM_PROMPT }],
@@ -442,7 +443,7 @@ async function generateAISummary(
   selectedExercises: IExercise[]
 ): Promise<string> {
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     config: {
       systemInstruction: {
         parts: [{ text: EXERCISE_SUMMARY_SYSTEM_PROMPT }],

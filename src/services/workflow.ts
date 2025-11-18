@@ -1,5 +1,6 @@
 import genAI from '../config/gemini';
 import pool from '../config/db';
+import { env } from '../config/env';
 import qdrantClient from '../config/qdrant';
 import { EXERCISES_COLLECTION_NAME } from './qdrant';
 import { searchSimilarWorkoutSessions } from './workoutSync';
@@ -63,7 +64,7 @@ async function processProfileIntake(
   ];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -415,7 +416,7 @@ async function processExerciseRecommendation(
   const conversationHistory: Message[] = session.conversationHistory || [];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     history: conversationHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -845,7 +846,7 @@ async function handleProfileConfirmation(
     const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
     const chat = genAI.chats.create({
-      model: 'gemini-2.5-flash',
+      model: env.GEMINI_MODEL,
       history: updatedHistory.map((msg: Message) => ({
         role: msg.role,
         parts: [{ text: msg.content }],
@@ -886,7 +887,7 @@ async function handleProfileConfirmation(
   const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -960,7 +961,7 @@ async function handleExerciseConfirmation(
     const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
     const chat = genAI.chats.create({
-      model: 'gemini-2.5-flash',
+      model: env.GEMINI_MODEL,
       history: updatedHistory.map((msg: Message) => ({
         role: msg.role,
         parts: [{ text: msg.content }],
@@ -1018,7 +1019,7 @@ async function handleExerciseConfirmation(
   const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.5-flash',
+    model: env.GEMINI_MODEL,
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
