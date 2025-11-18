@@ -26,9 +26,18 @@ CREATE TABLE IF NOT EXISTS past_sessions (
   session_id VARCHAR(255) UNIQUE NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   date TIMESTAMP NOT NULL,
-  volume DECIMAL(10, 2) NOT NULL,
-  quality_score DECIMAL(3, 2) NOT NULL CHECK (quality_score >= 0 AND quality_score <= 1),
   notes TEXT,
+  target_duration_seconds INTEGER,
+  completed_reps_count INTEGER,
+  target_reps_count INTEGER,
+  calories_burned DECIMAL(10, 2),
+  completion_percentage DECIMAL(5, 2),
+  total_mistakes INTEGER,
+  accuracy_score DECIMAL(5, 2),
+  efficiency_score DECIMAL(5, 2),
+  total_exercise INTEGER,
+  actual_hold_time_seconds INTEGER,
+  target_hold_time_seconds INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -55,6 +64,25 @@ CREATE TABLE IF NOT EXISTS session_form_errors (
 );
 
 CREATE INDEX idx_session_form_errors_session_id ON session_form_errors(session_id);
+
+CREATE TABLE IF NOT EXISTS session_exercise_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES past_sessions(id) ON DELETE CASCADE,
+  exercise_id VARCHAR(255) NOT NULL REFERENCES exercises(external_id) ON DELETE CASCADE,
+  exercise_title VARCHAR(255) NOT NULL,
+  time_spent INTEGER NOT NULL,
+  repeats INTEGER NOT NULL,
+  total_reps INTEGER NOT NULL,
+  total_duration INTEGER NOT NULL,
+  calories DECIMAL(10, 2) NOT NULL,
+  average_accuracy DECIMAL(3, 2),
+  mistakes JSONB NOT NULL,
+  order_index INTEGER NOT NULL,
+  UNIQUE(session_id, order_index)
+);
+
+CREATE INDEX idx_session_exercise_results_session_id ON session_exercise_results(session_id);
+CREATE INDEX idx_session_exercise_results_exercise_id ON session_exercise_results(exercise_id);
 
 -- Trigger function for exercises table
 CREATE OR REPLACE FUNCTION notify_exercise_change()
@@ -115,4 +143,43 @@ CREATE TRIGGER exercise_delete_trigger
   AFTER DELETE ON exercises
   FOR EACH ROW
   EXECUTE FUNCTION notify_exercise_change();
+
+-- Trigger function for past_sessions table
+CREATE OR REPLACE FUNCTION notify_past_session_change()
+RETURNS TRIGGER AS $$
+DECLARE
+  session_id_val UUID;
+  user_id_val VARCHAR(255);
+  original_session_id_val VARCHAR(255);
+  operation_type TEXT;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    session_id_val := NEW.id;
+    user_id_val := NEW.user_id;
+    original_session_id_val := NEW.session_id;
+    operation_type := 'INSERT';
+
+    PERFORM pg_notify(
+      'past_session_changes',
+      json_build_object(
+        'session_id', session_id_val,
+        'user_id', user_id_val,
+        'original_session_id', original_session_id_val,
+        'operation', operation_type
+      )::text
+    );
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers on past_sessions table
+DROP TRIGGER IF EXISTS past_session_insert_trigger ON past_sessions;
+CREATE TRIGGER past_session_insert_trigger
+  AFTER INSERT ON past_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION notify_past_session_change();
 

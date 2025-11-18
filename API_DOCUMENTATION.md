@@ -116,6 +116,14 @@ Generate personalized exercise recommendations based on the user profile
 
 Confirm the recommended exercises with the user. Users should respond with **"CONFIRM"** to proceed or **"CANCEL"** to request changes or new recommendations.
 
+### Step 5: EXERCISE_SUMMARY
+
+After confirming exercises, users complete their workout and submit detailed results. The results include overall session metrics and per-exercise performance data.
+
+### Step 6: COMPLETED
+
+After successfully submitting workout results, the session is completed and cleared. The system generates an AI summary of the workout session.
+
 ---
 
 ## Confirmation and Cancellation
@@ -344,7 +352,118 @@ When the API response includes `action: 'CONFIRMATION'` and the step is either `
 
 ---
 
-### Example 6: Canceling Profile Confirmation
+### Example 6: Submitting Workout Results
+
+After completing the workout, submit detailed results including overall session metrics and per-exercise performance data.
+
+**Request Structure:**
+
+The `content` field must be a JSON string containing the workout results. Here's the structure:
+
+```json
+{
+  "userId": "user_123",
+  "sessionId": "session_abc",
+  "messages": [
+    {
+      "role": "user",
+      "content": "<JSON_STRING_HERE>"
+    }
+  ]
+}
+```
+
+**JSON Structure (before stringifying):**
+
+```json
+{
+  "target_duration_seconds": 1800,
+  "completed_reps_count": 85,
+  "target_reps_count": 100,
+  "calories_burned": 250.5,
+  "completion_percentage": 85.0,
+  "total_mistakes": 12,
+  "accuracy_score": 88.5,
+  "efficiency_score": 82.3,
+  "total_exercise": 5,
+  "actual_hold_time_seconds": 0,
+  "target_hold_time_seconds": 0,
+  "exercises": [
+    {
+      "exercise_title": "Squats",
+      "time_spent": 300,
+      "repeats": 3,
+      "total_reps": 36,
+      "total_duration": 0,
+      "calories": 80.2,
+      "exercise_id": "ex_001",
+      "mistakes": [
+        {
+          "mistake": "Knees caving inward",
+          "count": 2
+        },
+        {
+          "mistake": "Not going low enough",
+          "count": 1
+        }
+      ],
+      "average_accuracy": 0.92
+    },
+    {
+      "exercise_title": "Push-ups",
+      "time_spent": 240,
+      "repeats": 3,
+      "total_reps": 30,
+      "total_duration": 0,
+      "calories": 65.3,
+      "exercise_id": "ex_002",
+      "mistakes": [
+        {
+          "mistake": "Sagging hips",
+          "count": 3
+        }
+      ],
+      "average_accuracy": 0.85
+    }
+  ],
+  "notes": "Felt good overall, but struggled with push-ups"
+}
+```
+
+**Actual Request (with JSON stringified):**
+
+```json
+{
+  "userId": "user_123",
+  "sessionId": "session_abc",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{\"target_duration_seconds\":1800,\"completed_reps_count\":85,\"target_reps_count\":100,\"calories_burned\":250.5,\"completion_percentage\":85.0,\"total_mistakes\":12,\"accuracy_score\":88.5,\"efficiency_score\":82.3,\"total_exercise\":5,\"actual_hold_time_seconds\":0,\"target_hold_time_seconds\":0,\"exercises\":[{\"exercise_title\":\"Squats\",\"time_spent\":300,\"repeats\":3,\"total_reps\":36,\"total_duration\":0,\"calories\":80.2,\"exercise_id\":\"ex_001\",\"mistakes\":[{\"mistake\":\"Knees caving inward\",\"count\":2},{\"mistake\":\"Not going low enough\",\"count\":1}],\"average_accuracy\":0.92},{\"exercise_title\":\"Push-ups\",\"time_spent\":240,\"repeats\":3,\"total_reps\":30,\"total_duration\":0,\"calories\":65.3,\"exercise_id\":\"ex_002\",\"mistakes\":[{\"mistake\":\"Sagging hips\",\"count\":3}],\"average_accuracy\":0.85}],\"notes\":\"Felt good overall, but struggled with push-ups\"}"
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": "Great workout! You completed 85 out of 100 reps (85% completion). Your overall accuracy was 88.5% and efficiency was 82.3%. You burned 250.5 calories. Here's a summary:\n\n**Squats:** Excellent form with 92% accuracy. Minor issues with knees caving inward (2 instances) and not going low enough (1 instance). Keep focusing on depth and knee alignment.\n\n**Push-ups:** Good effort with 85% accuracy. Watch out for sagging hips (3 instances) - try to keep your core engaged and body in a straight line.\n\nOverall, this was a solid session! Keep up the good work.\n\nFelt good overall, but struggled with push-ups",
+  "step": "COMPLETED"
+}
+```
+
+**Important Notes:**
+
+- The `content` field must be a **JSON string** (not a JSON object)
+- After successful submission, the session is automatically cleared
+- Subsequent requests with the same `sessionId` will start a new `PROFILE_INTAKE` session
+- The response includes an AI-generated summary of the workout performance
+
+---
+
+### Example 7: Canceling Profile Confirmation
 
 **Request:**
 
@@ -372,7 +491,7 @@ When the API response includes `action: 'CONFIRMATION'` and the step is either `
 
 ---
 
-### Example 7: Requesting New Exercise Recommendations
+### Example 8: Requesting New Exercise Recommendations
 
 **Request:**
 
@@ -486,7 +605,58 @@ type WorkflowStep =
   | 'PROFILE_INTAKE'
   | 'PROFILE_CONFIRMATION'
   | 'EXERCISE_RECOMMENDATION'
-  | 'EXERCISE_CONFIRMATION';
+  | 'EXERCISE_CONFIRMATION'
+  | 'EXERCISE_SUMMARY';
+```
+
+### ExerciseResultMistake
+
+```typescript
+interface ExerciseResultMistake {
+  mistake: string; // Description of the mistake
+  count: number; // Number of times this mistake occurred
+}
+```
+
+### ExerciseResultItem
+
+```typescript
+interface ExerciseResultItem {
+  exercise_title: string; // Exercise name
+  time_spent: number; // Seconds spent on this exercise
+  repeats: number; // Number of sets/repeats completed
+  total_reps: number; // Total repetitions completed
+  total_duration: number; // Total duration in seconds (for timer-based exercises)
+  calories: number; // Calories burned for this exercise
+  exercise_id: string; // Exercise ID (must match the exercise ID from recommendations)
+  mistakes: ExerciseResultMistake[]; // Array of mistakes made during this exercise
+  average_accuracy?: number; // Average accuracy for this exercise (0-1, optional)
+}
+```
+
+### ExerciseResults
+
+```typescript
+interface ExerciseResults {
+  // Overall session metrics
+  target_duration_seconds: number; // Target workout duration in seconds
+  completed_reps_count: number; // Total completed reps across all exercises
+  target_reps_count: number; // Total target reps across all exercises
+  calories_burned: number; // Total calories burned (2 decimal places)
+  completion_percentage: number; // Workout completion percentage (0-100, 2 decimal places)
+  total_mistakes: number; // Total mistake count across all exercises
+  accuracy_score: number; // Overall accuracy score (0-100)
+  efficiency_score: number; // Overall efficiency score (0-100)
+  total_exercise: number; // Number of exercises completed
+  actual_hold_time_seconds: number; // Time in correct position for timer-based exercises
+  target_hold_time_seconds: number; // Target hold time for timer-based exercises
+
+  // Per-exercise results
+  exercises: ExerciseResultItem[]; // Array of results for each exercise
+
+  // Optional fields
+  notes?: string; // Optional user notes about the workout
+}
 ```
 
 ---
@@ -570,12 +740,17 @@ PROFILE_CONFIRMATION
 EXERCISE_RECOMMENDATION
     ↓ (exercises generated)
 EXERCISE_CONFIRMATION
+    ↓ (user confirms)
+EXERCISE_SUMMARY
+    ↓ (results submitted)
+COMPLETED
 ```
 
 **Alternative flows:**
 
 - From `PROFILE_CONFIRMATION`, user can cancel → back to `PROFILE_INTAKE`
 - From `EXERCISE_CONFIRMATION`, user can cancel → back to `EXERCISE_RECOMMENDATION` or stay in `EXERCISE_CONFIRMATION`
+- After `COMPLETED`, session is cleared → new requests start at `PROFILE_INTAKE`
 
 ---
 
@@ -603,10 +778,19 @@ EXERCISE_CONFIRMATION
    - "CANCEL" allows users to make changes or request modifications
    - These commands are case-insensitive
 
-5. **Error Handling:**
+5. **Submitting Workout Results:**
+   - When `step` is `EXERCISE_SUMMARY`, send workout results as a JSON string in the message `content`
+   - The JSON must match the `ExerciseResults` interface structure
+   - Include both overall session metrics and per-exercise results
+   - The `exercise_id` in each exercise result must match the exercise ID from the confirmed recommendations
+   - After successful submission, the session is cleared and cannot be modified
+   - The response includes an AI-generated summary of the workout
+
+6. **Error Handling:**
    - Always check the `step` field in the response to understand current state
    - Handle `action: 'CONFIRMATION'` appropriately in your UI
    - Implement retry logic for 500 errors
+   - If workout results submission fails, ensure the JSON string is properly escaped
 
 ---
 

@@ -1020,24 +1020,6 @@ async function processExerciseSummary(
 
   const selectedExercises: IExercise[] = session.selectedExercises;
 
-  const volume =
-    exerciseResults.volume ??
-    exerciseResults.completed_reps_count ??
-    exerciseResults.calories_burned ??
-    0;
-
-  const qualityScore =
-    exerciseResults.qualityScore ??
-    (exerciseResults.accuracy_score && exerciseResults.efficiency_score
-      ? (exerciseResults.accuracy_score + exerciseResults.efficiency_score) /
-        2 /
-        100
-      : exerciseResults.accuracy_score
-        ? exerciseResults.accuracy_score / 100
-        : exerciseResults.efficiency_score
-          ? exerciseResults.efficiency_score / 100
-          : 0.8);
-
   const notes = exerciseResults.notes
     ? `${exerciseResults.notes}\n\n${await generateAISummary(exerciseResults, selectedExercises)}`
     : await generateAISummary(exerciseResults, selectedExercises);
@@ -1048,20 +1030,18 @@ async function processExerciseSummary(
 
     const sessionResult = await client.query(
       `INSERT INTO past_sessions (
-        session_id, user_id, date, volume, quality_score, notes,
+        session_id, user_id, date, notes,
         target_duration_seconds, completed_reps_count, target_reps_count,
         calories_burned, completion_percentage, total_mistakes,
         accuracy_score, efficiency_score, total_exercise,
         actual_hold_time_seconds, target_hold_time_seconds
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id`,
       [
         sessionId,
         session.userId,
         new Date(),
-        volume,
-        qualityScore,
         notes,
         exerciseResults.target_duration_seconds ?? null,
         exerciseResults.completed_reps_count ?? null,

@@ -43,8 +43,6 @@ export interface IPastSession {
   sessionId: string;
   date: Date;
   exercises: IExercise[];
-  volume: number;
-  qualityScore: number;
   formErrors: string[];
   notes?: string;
   embedding: number[] | null;
@@ -102,8 +100,6 @@ export interface ExerciseResults {
   target_hold_time_seconds: number;
   exercises: ExerciseResultItem[];
   notes?: string;
-  volume?: number;
-  qualityScore?: number;
 }
 
 export interface PastSessionRow {
@@ -111,8 +107,6 @@ export interface PastSessionRow {
   session_id: string;
   user_id: string;
   date: Date;
-  volume: number;
-  quality_score: number;
   notes: string | null;
   target_duration_seconds?: number | null;
   completed_reps_count?: number | null;
