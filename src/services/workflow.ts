@@ -22,11 +22,11 @@ import {
   setSession,
   updateSession,
   updateSessionStep,
-  deleteSession,
 } from './session';
 import {
   PROFILE_INTAKE_SYSTEM_PROMPT,
   EXERCISE_RECOMMENDATION_SYSTEM_PROMPT,
+  COMPLETED_CHAT_SYSTEM_PROMPT,
 } from '../constants';
 import type {
   WorkflowResponse,
@@ -810,13 +810,68 @@ async function processExerciseSummary(
     client.release();
   }
 
-  await deleteSession(sessionId);
-  console.log('[EXERCISE_SUMMARY] Session cleared after completion:', {
+  const conversationHistory: Message[] = session.conversationHistory || [];
+  const fullHistory: Message[] = [
+    ...conversationHistory,
+    { role: 'model' as const, content: notes },
+  ];
+
+  await updateSession(sessionId, {
+    step: 'COMPLETED',
+    conversationHistory: fullHistory,
+  });
+
+  console.log('[EXERCISE_SUMMARY] Session updated to COMPLETED state:', {
     sessionId,
   });
 
   return {
     response: notes,
+    step: 'COMPLETED',
+  };
+}
+
+async function handleCompletedChat(
+  sessionId: string,
+  messages: Message[]
+): Promise<WorkflowResponse> {
+  const sessionResult = await getSession(sessionId);
+  if (!sessionResult) {
+    throw new Error('Session not found');
+  }
+
+  const session: SessionState = sessionResult;
+  const conversationHistory: Message[] = session.conversationHistory || [];
+  const updatedHistory: Message[] = [...conversationHistory, ...messages];
+
+  const chat = genAI.chats.create({
+    model: env.GEMINI_MODEL,
+    history: updatedHistory.map((msg: Message) => ({
+      role: msg.role,
+      parts: [{ text: msg.content }],
+    })),
+    config: {
+      systemInstruction: {
+        parts: [{ text: COMPLETED_CHAT_SYSTEM_PROMPT }],
+      },
+    },
+  });
+
+  const lastUserMessage = messages[messages.length - 1]?.content || '';
+  const response = await chat.sendMessage({ message: lastUserMessage });
+  const responseText = response.text || '';
+
+  const fullHistory: Message[] = [
+    ...updatedHistory,
+    { role: 'model' as const, content: responseText },
+  ];
+
+  await updateSession(sessionId, {
+    conversationHistory: fullHistory,
+  });
+
+  return {
+    response: responseText,
     step: 'COMPLETED',
   };
 }
@@ -1181,6 +1236,9 @@ export async function processWorkflow(
         response: 'Please submit your exercise results.',
         step: 'EXERCISE_SUMMARY',
       };
+
+    case 'COMPLETED':
+      return await handleCompletedChat(sessionId, messages);
 
     default:
       return await processProfileIntake(userId, sessionId, messages);

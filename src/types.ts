@@ -137,7 +137,8 @@ export type WorkflowStep =
   | 'PROFILE_CONFIRMATION'
   | 'EXERCISE_RECOMMENDATION'
   | 'EXERCISE_CONFIRMATION'
-  | 'EXERCISE_SUMMARY';
+  | 'EXERCISE_SUMMARY'
+  | 'COMPLETED';
 
 export interface Message {
   role: 'user' | 'model';
