@@ -130,9 +130,20 @@ fi
 
 # Step 8: Install Nginx
 print_info "Step 8/9: Installing Nginx..."
-if command -v nginx &> /dev/null; then
-    NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2)
-    print_warning "Nginx already installed: $NGINX_VERSION"
+if command -v nginx &> /dev/null || [ -f /usr/sbin/nginx ] || dpkg -l | grep -q "^ii.*nginx "; then
+    if command -v nginx &> /dev/null; then
+        NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2)
+        print_warning "Nginx already installed: $NGINX_VERSION"
+    elif [ -f /usr/sbin/nginx ]; then
+        NGINX_VERSION=$(/usr/sbin/nginx -v 2>&1 | cut -d'/' -f2)
+        print_warning "Nginx already installed: $NGINX_VERSION (in /usr/sbin)"
+        sudo systemctl enable nginx 2>/dev/null || true
+        sudo systemctl start nginx 2>/dev/null || true
+    else
+        print_warning "Nginx package found but binary not accessible"
+        sudo systemctl enable nginx 2>/dev/null || true
+        sudo systemctl start nginx 2>/dev/null || true
+    fi
 else
     sudo apt install -y nginx
     sudo systemctl enable nginx
@@ -220,8 +231,23 @@ fi
 # Check Nginx
 if command -v nginx &> /dev/null; then
     print_success "Nginx: $(nginx -v 2>&1 | cut -d'/' -f2)"
+elif [ -f /usr/sbin/nginx ]; then
+    NGINX_VERSION=$(/usr/sbin/nginx -v 2>&1 | cut -d'/' -f2)
+    NGINX_STATUS=$(sudo systemctl is-active nginx 2>/dev/null || echo "inactive")
+    if [ "$NGINX_STATUS" = "active" ]; then
+        print_success "Nginx: $NGINX_VERSION (installed and running)"
+    else
+        print_warning "Nginx: $NGINX_VERSION (installed but not running - run: sudo systemctl start nginx)"
+    fi
+elif dpkg -l | grep -q "^ii.*nginx "; then
+    NGINX_STATUS=$(sudo systemctl is-active nginx 2>/dev/null || echo "inactive")
+    if [ "$NGINX_STATUS" = "active" ]; then
+        print_success "Nginx: Installed and running (binary not in PATH)"
+    else
+        print_warning "Nginx: Installed but not running (run: sudo systemctl start nginx)"
+    fi
 else
-    print_error "Nginx: Not found"
+    print_error "Nginx: Not found (install manually: sudo apt install -y nginx)"
 fi
 
 # Check Certbot
