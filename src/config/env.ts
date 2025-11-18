@@ -10,4 +10,5 @@ export const env = {
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
 };
