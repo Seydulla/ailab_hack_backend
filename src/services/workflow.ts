@@ -63,7 +63,7 @@ async function processProfileIntake(
   ];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -415,7 +415,7 @@ async function processExerciseRecommendation(
   const conversationHistory: Message[] = session.conversationHistory || [];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     history: conversationHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -845,7 +845,7 @@ async function handleProfileConfirmation(
     const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
     const chat = genAI.chats.create({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       history: updatedHistory.map((msg: Message) => ({
         role: msg.role,
         parts: [{ text: msg.content }],
@@ -886,7 +886,7 @@ async function handleProfileConfirmation(
   const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
@@ -960,7 +960,7 @@ async function handleExerciseConfirmation(
     const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
     const chat = genAI.chats.create({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       history: updatedHistory.map((msg: Message) => ({
         role: msg.role,
         parts: [{ text: msg.content }],
@@ -1018,7 +1018,7 @@ async function handleExerciseConfirmation(
   const updatedHistory: Message[] = [...conversationHistory, ...messages];
 
   const chat = genAI.chats.create({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     history: updatedHistory.map((msg: Message) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
