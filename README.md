@@ -4,17 +4,17 @@ An intelligent fitness coaching system that provides personalized workout recomm
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Technologies](#technologies)
-- [Key Features](#key-features)
-- [System Flows](#system-flows)
-- [Internal Processes](#internal-processes)
-- [Data Flow](#data-flow)
-- [Setup & Installation](#setup--installation)
-- [Deployment](#deployment)
-- [API Documentation](#api-documentation)
-- [Database Schema](#database-schema)
+- [Overview](#-overview)
+- [Architecture](#️-architecture)
+- [Technologies](#️-technologies)
+- [Key Features](#-key-features)
+- [System Flows](#-system-flows)
+- [Internal Processes](#-internal-processes)
+- [Data Flow](#-data-flow)
+- [Setup & Installation](#-setup--installation)
+- [Deployment](#-deployment)
+- [API Documentation](#-api-documentation)
+- [Database Schema](#️-database-schema)
 
 ## 🎯 Overview
 
