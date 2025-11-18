@@ -1346,8 +1346,6 @@ async function handleExerciseConfirmation(
     return {
       response: stripDataFromResponse(responseText),
       step: 'EXERCISE_CONFIRMATION',
-      action: 'CONFIRMATION',
-      data: { exercises: session.exerciseRecommendations || [] },
     };
   }
 
